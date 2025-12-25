@@ -1,0 +1,36 @@
+[gd_scene load_steps=8 format=3 uid="uid://snk35r3rtgsf"]
+
+[ext_resource type="Script" uid="uid://c7qw8jpb8y373" path="res://player.gd" id="1_4flbx"]
+[ext_resource type="PackedScene" uid="uid://i1dwufquwl4w" path="res://assets/Character.blend" id="2_i3pqv"]
+[ext_resource type="Script" uid="uid://ddgpytddr1n72" path="res://camera_spring_arm.gd" id="2_onrkg"]
+[ext_resource type="Script" uid="uid://7ujj0fhdpae3" path="res://gun.gd" id="3_sweqy"]
+[ext_resource type="PackedScene" uid="uid://c7l75f8fcxq4c" path="res://assets/Pistol.blend" id="4_hqtel"]
+
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_i3pqv"]
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_i3pqv"]
+radius = 0.3
+
+[node name="Player" type="CharacterBody3D"]
+script = ExtResource("1_4flbx")
+
+[node name="EquipmentPivot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+
+[node name="Gun" parent="EquipmentPivot" instance=ExtResource("4_hqtel")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 0, -0.6)
+script = ExtResource("3_sweqy")
+
+[node name="Character" parent="." instance=ExtResource("2_i3pqv")]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+shape = SubResource("CapsuleShape3D_i3pqv")
+
+[node name="SpringArm3D" type="SpringArm3D" parent="."]
+shape = SubResource("SphereShape3D_i3pqv")
+spring_length = 3.0
+margin = 0.1
+script = ExtResource("2_onrkg")
+
+[node name="Camera3D" type="Camera3D" parent="SpringArm3D"]
