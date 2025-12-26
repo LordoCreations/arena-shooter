@@ -1,25 +1,187 @@
-[gd_scene load_steps=8 format=3 uid="uid://snk35r3rtgsf"]
+[gd_scene load_steps=16 format=3 uid="uid://snk35r3rtgsf"]
 
 [ext_resource type="Script" uid="uid://c7qw8jpb8y373" path="res://player.gd" id="1_4flbx"]
 [ext_resource type="PackedScene" uid="uid://i1dwufquwl4w" path="res://assets/Character.blend" id="2_i3pqv"]
 [ext_resource type="Script" uid="uid://ddgpytddr1n72" path="res://camera_spring_arm.gd" id="2_onrkg"]
-[ext_resource type="Script" uid="uid://7ujj0fhdpae3" path="res://gun.gd" id="3_sweqy"]
+[ext_resource type="Script" uid="uid://7ujj0fhdpae3" path="res://hand.gd" id="3_sweqy"]
+[ext_resource type="PackedScene" uid="uid://cupogmlrh2i7m" path="res://muzzle_flash.tscn" id="4_1jxqw"]
 [ext_resource type="PackedScene" uid="uid://c7l75f8fcxq4c" path="res://assets/Pistol.blend" id="4_hqtel"]
+[ext_resource type="Script" uid="uid://oewxytkn6r4r" path="res://crosshair.gd" id="7_1jxqw"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_i3pqv"]
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_i3pqv"]
 radius = 0.3
 
+[sub_resource type="Animation" id="Animation_2hs0m"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("EquipmentPivot/Hand/Gun:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector3(0, 0, 0)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("EquipmentPivot/Hand/Gun:rotation")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector3(0, 0, 0)]
+}
+
+[sub_resource type="Animation" id="Animation_sweqy"]
+resource_name = "idle"
+length = 3.0
+loop_mode = 1
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("EquipmentPivot/Hand/Gun:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 1.5),
+"transitions": PackedFloat32Array(-2, -2),
+"update": 0,
+"values": [Vector3(0, 0, 0), Vector3(0, -0.05, 0)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("EquipmentPivot/Hand/Gun:rotation")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 1.5),
+"transitions": PackedFloat32Array(-2, -2),
+"update": 0,
+"values": [Vector3(0, 0, 0), Vector3(-0.1308997, 0, 0)]
+}
+
+[sub_resource type="Animation" id="Animation_1jxqw"]
+resource_name = "move"
+loop_mode = 1
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("EquipmentPivot/Hand/Gun:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.25, 0.5, 0.75),
+"transitions": PackedFloat32Array(0.5, 2, 0.5, 2),
+"update": 0,
+"values": [Vector3(0, 0, 0), Vector3(-0.05, 0.05, 0), Vector3(0, 0, 0), Vector3(0.05, 0.05, 0)]
+}
+
+[sub_resource type="Animation" id="Animation_dw050"]
+resource_name = "shoot"
+length = 0.4
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("EquipmentPivot/Hand/Gun:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0, 0.4),
+"transitions": PackedFloat32Array(0.5, 1),
+"update": 0,
+"values": [Vector3(0, 0.05, 0), Vector3(0, 0, 0)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("EquipmentPivot/Hand/Gun:rotation")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0, 0.4),
+"transitions": PackedFloat32Array(0.5, 1),
+"update": 0,
+"values": [Vector3(0.2617994, 0, 0), Vector3(0, 0, 0)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_2hs0m"]
+_data = {
+&"RESET": SubResource("Animation_2hs0m"),
+&"idle": SubResource("Animation_sweqy"),
+&"move": SubResource("Animation_1jxqw"),
+&"shoot": SubResource("Animation_dw050")
+}
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_2hs0m"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath("Character:rotation")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+properties/2/path = NodePath("EquipmentPivot:position")
+properties/2/spawn = true
+properties/2/replication_mode = 1
+properties/3/path = NodePath("EquipmentPivot:rotation")
+properties/3/spawn = true
+properties/3/replication_mode = 1
+properties/4/path = NodePath("EquipmentPivot/Hand:position")
+properties/4/spawn = true
+properties/4/replication_mode = 1
+properties/5/path = NodePath("EquipmentPivot/Hand:rotation")
+properties/5/spawn = true
+properties/5/replication_mode = 1
+properties/6/path = NodePath("EquipmentPivot/Hand/Gun:position")
+properties/6/spawn = true
+properties/6/replication_mode = 1
+properties/7/path = NodePath("EquipmentPivot/Hand/Gun:rotation")
+properties/7/spawn = true
+properties/7/replication_mode = 1
+properties/8/path = NodePath("SpringArm3D:position")
+properties/8/spawn = true
+properties/8/replication_mode = 1
+properties/9/path = NodePath("SpringArm3D:rotation")
+properties/9/spawn = true
+properties/9/replication_mode = 1
+properties/10/path = NodePath("SpringArm3D:spring_length")
+properties/10/spawn = true
+properties/10/replication_mode = 1
+properties/11/path = NodePath("SpringArm3D/Camera3D:position")
+properties/11/spawn = true
+properties/11/replication_mode = 1
+properties/12/path = NodePath("SpringArm3D/Camera3D:rotation")
+properties/12/spawn = true
+properties/12/replication_mode = 1
+
 [node name="Player" type="CharacterBody3D"]
+collision_layer = 2
 script = ExtResource("1_4flbx")
 
 [node name="EquipmentPivot" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.2, 0)
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 
-[node name="Gun" parent="EquipmentPivot" instance=ExtResource("4_hqtel")]
+[node name="Hand" type="Node3D" parent="EquipmentPivot"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 0, -0.6)
 script = ExtResource("3_sweqy")
+
+[node name="Gun" parent="EquipmentPivot/Hand" instance=ExtResource("4_hqtel")]
+
+[node name="MuzzleFlash" parent="EquipmentPivot/Hand/Gun" instance=ExtResource("4_1jxqw")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12168217, -0.66287124)
+
+[node name="RayCast3D" type="RayCast3D" parent="EquipmentPivot/Hand/Gun"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.122, 0)
+target_position = Vector3(0, 0, -50)
+collision_mask = 3
 
 [node name="Character" parent="." instance=ExtResource("2_i3pqv")]
 
@@ -34,3 +196,71 @@ margin = 0.1
 script = ExtResource("2_onrkg")
 
 [node name="Camera3D" type="Camera3D" parent="SpringArm3D"]
+
+[node name="Convergence" type="RayCast3D" parent="SpringArm3D/Camera3D"]
+target_position = Vector3(0, 0, -50)
+collision_mask = 3
+
+[node name="Crosshair" type="Control" parent="SpringArm3D/Camera3D"]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 1
+script = ExtResource("7_1jxqw")
+
+[node name="Center" type="Control" parent="SpringArm3D/Camera3D/Crosshair"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="Dot" type="Line2D" parent="SpringArm3D/Camera3D/Crosshair/Center"]
+points = PackedVector2Array(0.001, 0, 0, 0)
+width = 3.5
+begin_cap_mode = 2
+end_cap_mode = 2
+
+[node name="Right" type="Line2D" parent="SpringArm3D/Camera3D/Crosshair/Center"]
+position = Vector2(10, 0)
+points = PackedVector2Array(10, 0, 0, 0)
+width = 2.0
+
+[node name="Down" type="Line2D" parent="SpringArm3D/Camera3D/Crosshair/Center"]
+position = Vector2(0, 10)
+rotation = 1.5707701
+points = PackedVector2Array(10, 0, 0, 0)
+width = 2.0
+
+[node name="Up" type="Line2D" parent="SpringArm3D/Camera3D/Crosshair/Center"]
+position = Vector2(0, -10)
+rotation = -1.5707964
+points = PackedVector2Array(10, 0, 0, 0)
+width = 2.0
+
+[node name="Left" type="Line2D" parent="SpringArm3D/Camera3D/Crosshair/Center"]
+position = Vector2(-10, 0)
+rotation = -3.14206
+points = PackedVector2Array(10, 0, 0, 0)
+width = 2.0
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+libraries = {
+&"": SubResource("AnimationLibrary_2hs0m")
+}
+autoplay = "idle"
+playback_default_blend_time = 0.3
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
+replication_config = SubResource("SceneReplicationConfig_2hs0m")
+
+[node name="Firerate" type="Timer" parent="."]
+wait_time = 0.25
+
+[connection signal="timeout" from="Firerate" to="." method="_on_firerate_timeout"]
