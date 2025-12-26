@@ -21,7 +21,7 @@ var is_aiming: bool = false
 @export var base_jump_velocity: float = 8.0
 @export var speed_jump_bonus: float = 0.4    # Speed * bonus = extra jump height
 @export var fatigue_cooldown: float = 0.3    # Seconds on ground until jump height is fully restored
-@export var min_jump_percent: float = 0.4    # Minimum jump height
+@export var min_jump_percent: float = 0.8    # Minimum jump height
 
 # --- Equipment ---
 @onready var equipment := $EquipmentPivot
@@ -34,6 +34,11 @@ signal firing(is_firing: bool)
 @export var ads_speed_mult: float = 0.6 # 60% speed while aiming
 @export var recoil_power: Vector2 = Vector2(2, 0.03)
 
+# --- Health ---
+signal health_changed(health_value: float, max_health: float)
+@export var max_health: float = 3.0
+var health: float = max_health
+
 # --- Animations ---
 @onready var anim_player := $AnimationPlayer
 @export var idle_time: float = 2.0
@@ -43,10 +48,6 @@ signal firing(is_firing: bool)
 var floor_time: int = 0
 var last_active_time: int = 0
 var current_speed: float = 0.0
-
-# --- Game ---
-@export var max_health: float = 3.0
-var health: float = max_health
 
 func _enter_tree() -> void:
 	set_multiplayer_authority(str(name).to_int())
@@ -74,7 +75,7 @@ func calculate_jump_velocity() -> float:
 	
 	# B. Fatigue: Repeated jumps have reduce height
 	# Clamps between min_jump_percent and 100%
-	var fatigue_factor = clamp(tslj / fatigue_cooldown, min_jump_percent, 1.0)
+	var fatigue_factor = clamp(tslj / fatigue_cooldown + min_jump_percent, min_jump_percent, 1.0)
 	
 	return (base_jump_velocity + speed_factor) * fatigue_factor
 
@@ -230,6 +231,8 @@ func fire_shot() -> void:
 @rpc("any_peer")
 func hurt(damage: float):
 	health -= damage
+	health_changed.emit(health, max_health)
+
 	if health <= 0:
 		health = max_health
 		position = Vector3.ZERO # fix later
