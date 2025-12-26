@@ -31,9 +31,6 @@ func on_fired(f: bool):
 	
 	if f: 
 		current_spread = clamp((current_spread + grow_increment) * grow_multiplier, reset_pos, max_spread)
-	else: 
-		# We don't snap to reset_pos instantly here anymore; we let _process lerp it
-		pass
 
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority(): return

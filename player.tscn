@@ -1,4 +1,4 @@
-[gd_scene load_steps=16 format=3 uid="uid://snk35r3rtgsf"]
+[gd_scene load_steps=18 format=3 uid="uid://snk35r3rtgsf"]
 
 [ext_resource type="Script" uid="uid://c7qw8jpb8y373" path="res://player.gd" id="1_4flbx"]
 [ext_resource type="PackedScene" uid="uid://i1dwufquwl4w" path="res://assets/Character.blend" id="2_i3pqv"]
@@ -12,6 +12,24 @@
 
 [sub_resource type="SphereShape3D" id="SphereShape3D_i3pqv"]
 radius = 0.3
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1jxqw"]
+bg_color = Color(0.89411765, 0.40784314, 0.43137255, 0.5529412)
+corner_radius_top_left = 7
+corner_radius_top_right = 7
+corner_radius_bottom_right = 7
+corner_radius_bottom_left = 7
+expand_margin_left = 3.0
+expand_margin_top = 3.0
+expand_margin_right = 3.0
+expand_margin_bottom = 3.0
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dw050"]
+bg_color = Color(0, 0.7172733, 0.3805772, 1)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
 
 [sub_resource type="Animation" id="Animation_2hs0m"]
 length = 0.001
@@ -250,6 +268,39 @@ rotation = -3.14206
 points = PackedVector2Array(10, 0, 0, 0)
 width = 2.0
 
+[node name="HUD" type="Control" parent="SpringArm3D/Camera3D"]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="SpringArm3D/Camera3D/HUD"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_constants/margin_left = 15
+theme_override_constants/margin_top = 15
+theme_override_constants/margin_right = 15
+theme_override_constants/margin_bottom = 15
+
+[node name="HealthBar" type="ProgressBar" parent="SpringArm3D/Camera3D/HUD/MarginContainer"]
+custom_minimum_size = Vector2(200, 20)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 8
+theme_override_styles/background = SubResource("StyleBoxFlat_1jxqw")
+theme_override_styles/fill = SubResource("StyleBoxFlat_dw050")
+value = 100.0
+rounded = true
+show_percentage = false
+
 [node name="AnimationPlayer" type="AnimationPlayer" parent="."]
 libraries = {
 &"": SubResource("AnimationLibrary_2hs0m")
@@ -262,5 +313,11 @@ replication_config = SubResource("SceneReplicationConfig_2hs0m")
 
 [node name="Firerate" type="Timer" parent="."]
 wait_time = 0.25
+
+[node name="Username" type="Label3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+billboard = 2
+text = "Player
+"
 
 [connection signal="timeout" from="Firerate" to="." method="_on_firerate_timeout"]

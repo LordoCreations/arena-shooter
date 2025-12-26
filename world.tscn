@@ -1,7 +1,8 @@
-[gd_scene load_steps=8 format=3 uid="uid://c3g4j2ygkydr7"]
+[gd_scene load_steps=7 format=3 uid="uid://c3g4j2ygkydr7"]
 
 [ext_resource type="PackedScene" uid="uid://cllmeko3a5vn" path="res://environment.tscn" id="1_f3sb7"]
 [ext_resource type="Script" uid="uid://clhs6sawiwggj" path="res://world.gd" id="1_tlwt5"]
+[ext_resource type="Script" uid="uid://di8hsbrc5je2w" path="res://multiplayer/networks/network_manager.gd" id="2_tlwt5"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_fj7yv"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -16,26 +17,13 @@ sky = SubResource("Sky_tlwt5")
 tonemap_mode = 2
 glow_enabled = true
 
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_fj7yv"]
-bg_color = Color(0.89411765, 0.40784314, 0.43137255, 0.5529412)
-corner_radius_top_left = 7
-corner_radius_top_right = 7
-corner_radius_bottom_right = 7
-corner_radius_bottom_left = 7
-expand_margin_left = 3.0
-expand_margin_top = 3.0
-expand_margin_right = 3.0
-expand_margin_bottom = 3.0
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_tlwt5"]
-bg_color = Color(0, 0.7172733, 0.3805772, 1)
-corner_radius_top_left = 5
-corner_radius_top_right = 5
-corner_radius_bottom_right = 5
-corner_radius_bottom_left = 5
-
 [node name="World" type="Node"]
 script = ExtResource("1_tlwt5")
+
+[node name="NetworkManager" type="Node" parent="." node_paths=PackedStringArray("_players_spawn_node")]
+unique_name_in_owner = true
+script = ExtResource("2_tlwt5")
+_players_spawn_node = NodePath("../Players")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
 transform = Transform3D(-0.8660254, -0.43301278, 0.25, 0, 0.49999997, 0.86602545, -0.50000006, 0.75, -0.43301266, 0, 0, 0)
@@ -78,55 +66,62 @@ vertical_alignment = 1
 
 [node name="HostButton" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
-text = "Host"
+text = "Host LAN"
 
 [node name="JoinButton" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
-text = "Join
+text = "Join LAN
 "
 
-[node name="AddressEntry" type="LineEdit" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
+[node name="JoinSteam" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
-placeholder_text = "Enter Address to Join"
-alignment = 1
+text = "Use Steam"
 
-[node name="HUD" type="Control" parent="CanvasLayer"]
+[node name="SteamHUD" type="PanelContainer" parent="CanvasLayer"]
 visible = false
-layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_left = 407.0
+offset_top = 85.0
+offset_right = -407.0
+offset_bottom = -85.0
 grow_horizontal = 2
 grow_vertical = 2
-mouse_filter = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/HUD"]
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/SteamHUD"]
+layout_mode = 2
 theme_override_constants/margin_left = 15
 theme_override_constants/margin_top = 15
 theme_override_constants/margin_right = 15
 theme_override_constants/margin_bottom = 15
 
-[node name="HealthBar" type="ProgressBar" parent="CanvasLayer/HUD/MarginContainer"]
-custom_minimum_size = Vector2(200, 20)
+[node name="Options" type="VBoxContainer" parent="CanvasLayer/SteamHUD/MarginContainer"]
 layout_mode = 2
-size_flags_horizontal = 0
-size_flags_vertical = 8
-theme_override_styles/background = SubResource("StyleBoxFlat_fj7yv")
-theme_override_styles/fill = SubResource("StyleBoxFlat_tlwt5")
-value = 100.0
-rounded = true
-show_percentage = false
+
+[node name="HostP2PGame" type="Button" parent="CanvasLayer/SteamHUD/MarginContainer/Options"]
+layout_mode = 2
+text = "Host P2P Game"
+
+[node name="ListLobbies" type="Button" parent="CanvasLayer/SteamHUD/MarginContainer/Options"]
+layout_mode = 2
+text = "List P2P Lobbies"
+
+[node name="Lobbies" type="ScrollContainer" parent="CanvasLayer/SteamHUD/MarginContainer/Options"]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/SteamHUD/MarginContainer/Options/Lobbies"]
+layout_mode = 2
 
 [node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="."]
 _spawnable_scenes = PackedStringArray("uid://snk35r3rtgsf")
-spawn_path = NodePath("..")
+spawn_path = NodePath("../Players")
+
+[node name="Players" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5487213, 0)
 
 [connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/HostButton" to="." method="_on_host_button_pressed"]
 [connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/JoinButton" to="." method="_on_join_button_pressed"]
+[connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/JoinSteam" to="." method="_on_join_steam_pressed"]
+[connection signal="pressed" from="CanvasLayer/SteamHUD/MarginContainer/Options/ListLobbies" to="." method="_on_list_lobbies_pressed"]
 [connection signal="spawned" from="MultiplayerSpawner" to="." method="_on_multiplayer_spawner_spawned"]

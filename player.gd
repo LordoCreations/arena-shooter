@@ -23,6 +23,10 @@ var is_aiming: bool = false
 @export var fatigue_cooldown: float = 0.3    # Seconds on ground until jump height is fully restored
 @export var min_jump_percent: float = 0.8    # Minimum jump height
 
+var floor_time: int = 0
+var last_active_time: int = 0
+var current_speed: float = 0.0
+
 # --- Equipment ---
 @onready var equipment := $EquipmentPivot
 @onready var bullet_cast := $EquipmentPivot/Hand/Gun/RayCast3D	
@@ -35,7 +39,6 @@ signal firing(is_firing: bool)
 @export var recoil_power: Vector2 = Vector2(2, 0.03)
 
 # --- Health ---
-signal health_changed(health_value: float, max_health: float)
 @export var max_health: float = 3.0
 var health: float = max_health
 
@@ -45,9 +48,18 @@ var health: float = max_health
 @export var muzzle_flash = preload("res://muzzle_flash.tscn")
 @onready var flash_parent = $EquipmentPivot/Hand/Gun/MuzzleFlash
 
-var floor_time: int = 0
-var last_active_time: int = 0
-var current_speed: float = 0.0
+# --- Game ---
+@onready var spawn_loc = get_parent()
+var player_id: int
+
+# --- Multiplayer ---
+var username = ""
+
+# --- HUD ---
+@onready var hud = $SpringArm3D/Camera3D/HUD
+@onready var health_bar = $SpringArm3D/Camera3D/HUD/MarginContainer/HealthBar
+@onready var username_tag = $Username
+@export var nameplate_visible_distance: float = 20.0
 
 func _enter_tree() -> void:
 	set_multiplayer_authority(str(name).to_int())
@@ -85,7 +97,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		firing.emit(false)
 
 func _physics_process(delta: float) -> void:
-	if not is_multiplayer_authority(): return
+	if not is_multiplayer_authority():
+		update_nameplate_visibility()
+		return
 	
 	# Check sprint state before movement logic
 	is_sprinting = Input.is_action_pressed("sprint") and is_on_floor() and Input.get_vector("left", "right", "up", "down").y < 0
@@ -184,6 +198,35 @@ func handle_visuals(delta: float, direction: Vector3) -> void:
 		visuals.rotation.y = lerp_angle(visuals.rotation.y, camera_yaw, rotation_speed * delta)
 		animate("idle")
 
+func update_nameplate_visibility():
+	# 1. Get the local player's camera
+	var local_player = get_viewport().get_camera_3d()
+	if not local_player: return
+
+	var dist = global_position.distance_to(local_player.global_position)
+
+	# 2. Check Distance
+	if dist > nameplate_visible_distance:
+		username_tag.hide()
+		return
+
+	# 3. Check Line of Sight (Raycast)
+	var space_state = get_world_3d().direct_space_state
+	var query = PhysicsRayQueryParameters3D.create(
+		local_player.global_position, 
+		global_position + Vector3(0, 1.5, 0) # Ray to the head area
+	)
+	# Exclude the local player's body from the raycast
+	query.exclude = [local_player.get_parent().get_parent()] 
+
+	var result = space_state.intersect_ray(query)
+
+	# If the ray hits nothing, or hits THIS player, we have line of sight
+	if result.is_empty() or result.collider == self:
+		username_tag.show()
+	else:
+		username_tag.hide()
+
 func shoot() -> void:
 	if not can_shoot: return
 	can_shoot = false
@@ -231,20 +274,34 @@ func fire_shot() -> void:
 @rpc("any_peer")
 func hurt(damage: float):
 	health -= damage
-	health_changed.emit(health, max_health)
+	health_bar.value = 100 * (health / max_health)
 
 	if health <= 0:
-		health = max_health
-		position = Vector3.ZERO # fix later
+		spawn()
+	
 
-func _ready() -> void:
-	if not is_multiplayer_authority(): return
+func _ready():
+	if not is_multiplayer_authority():
+		username_tag.text = username
+		return
+	
+	username_tag.hide()
+	hud.show()
+	
+	username = SteamManager.steam_username
+	
 	camera.current = true
 	floor_snap_length = 0.5
 	apply_floor_snap()
+	spawn()
 
 	# Connect to the camera's signal
 	camera_arm.aim_toggled.connect(_on_aim_toggled)
 
 func _on_firerate_timeout() -> void:
 	can_shoot = true
+
+func spawn() -> void:
+	health = max_health
+	position = MultiplayerManager.respawn_point
+	health_bar.value = 100 * (health / max_health)
