@@ -91,7 +91,7 @@ func calculate_jump_velocity() -> float:
 	
 	return (base_jump_velocity + speed_factor) * fatigue_factor
 
-func _unhandled_input(event: InputEvent) -> void:
+func _unhandled_input(_event: InputEvent) -> void:
 	if not is_multiplayer_authority(): return
 	if Input.is_action_just_released("shoot"):
 		firing.emit(false)
@@ -277,19 +277,25 @@ func hurt(damage: float):
 	health_bar.value = 100 * (health / max_health)
 
 	if health <= 0:
+		hide()
 		spawn()
 	
 
 func _ready():
-	if not is_multiplayer_authority():
+	if is_multiplayer_authority():
+		username = get_node_or_null("../../CanvasLayer/MainMenu/MarginContainer/VBoxContainer/Username").text
+		username = username if username and len(username) > 0 else "Player " + str(player_id)
 		username_tag.text = username
+		username_tag.hide()
+
+
+	if not is_multiplayer_authority():
+		username_tag.show()
+		show()
 		return
 	
-	username_tag.hide()
 	hud.show()
-	
-	username = SteamManager.steam_username
-	
+		
 	camera.current = true
 	floor_snap_length = 0.5
 	apply_floor_snap()
@@ -303,5 +309,6 @@ func _on_firerate_timeout() -> void:
 
 func spawn() -> void:
 	health = max_health
+	show()
 	position = MultiplayerManager.respawn_point
 	health_bar.value = 100 * (health / max_health)

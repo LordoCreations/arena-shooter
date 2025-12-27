@@ -12,7 +12,7 @@ func _init() -> void:
 	OS.set_environment("SteamAppId", str(STEAMAPPID))
 	OS.set_environment("SteamGameId", str(STEAMAPPID))
 
-func _process(delta: float) -> void:
+func _process(_delta: float) -> void:
 	Steam.run_callbacks()
 
 func initialize_steam() -> void:
@@ -24,6 +24,8 @@ func initialize_steam() -> void:
 	is_owned = Steam.isSubscribed()
 	steam_id = Steam.getSteamID()
 	steam_username = Steam.getPersonaName()
+	
+	print(steam_username)
 	
 	print("steam id: %s" % steam_id)
 	

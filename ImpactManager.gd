@@ -63,23 +63,25 @@ func spawn_impact(type: String, pos: Vector3, normal: Vector3, bullet_dir: Vecto
 			e_idx = (e_idx + 1) % pool_size
 
 	node.global_position = pos + (normal * 0.01)
-	
-	# PHYSICS: Angle of Incidence = Angle of Reflection
-	# .reflect() calculates the bounce direction based on the surface normal
-	var bounce_dir = bullet_dir.reflect(normal).normalized()
-	
-	node.look_at(pos + normal, Vector3.UP)
-	
-	# Trigger the effect
+
+	# 1. Determine the primary orientation (for decals/static effects)
+	# If the normal is pointing straight up or down, change the 'up' vector
+	if abs(normal.dot(Vector3.UP)) > 0.99:
+		node.look_at(pos + normal, Vector3.FORWARD)
+	else:
+		node.look_at(pos + normal, Vector3.UP)
+
+	# 2. Handle Particle-specific bounce directions
 	if node is GPUParticles3D or node is CPUParticles3D:
+		var bounce_dir = bullet_dir.reflect(normal).normalized()
 		node.restart()
 		node.emitting = true
-		
-		# Point the particles' -Z axis toward the bounce direction
-		if abs(bounce_dir.dot(Vector3.UP)) < 0.99:
-			node.look_at(pos + bounce_dir, Vector3.UP)
-		else:
+
+		# Check if bounce_dir is colinear with UP
+		if abs(bounce_dir.dot(Vector3.UP)) > 0.99:
 			node.look_at(pos + bounce_dir, Vector3.FORWARD)
+		else:
+			node.look_at(pos + bounce_dir, Vector3.UP)
 	else:
 		node.visible = true 
 

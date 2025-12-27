@@ -6,7 +6,7 @@ extends Node3D
 @onready var aim_ray = camera.get_node("Convergence") 
 
 @export var ads_lerp_speed: float = 8.0 # Slower looks more "physical"
-@export var hip_position: Vector3 = Vector3(0.5, -0.3, -0.4)
+@export var hip_position: Vector3 = Vector3(0.5, -0.3, -0.6)
 @export var sight_offset: Vector3 = Vector3(0, -0.35 , -1.2)
 
 # --- Spline / Avoidance Settings ---
@@ -45,9 +45,7 @@ func _process(delta: float) -> void:
 	var target_weight = 1.0 if is_ads else 0.0
 	lerp_weight = move_toward(lerp_weight, target_weight, ads_lerp_speed * delta)
 
-	# A. Start Point (Hip)
 	var p0 = equipment_pivot.global_transform.translated_local(hip_position).origin
-	# B. End Point (ADS - Predicts where camera is)
 	var p2 = camera.global_transform.translated_local(sight_offset).origin
 	
 	# C. Control Point (The "Shoulder" point to curve around)

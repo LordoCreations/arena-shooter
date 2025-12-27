@@ -11,7 +11,7 @@ var active_network
 @export var _players_spawn_node: Node3D
 
 func _build_multiplayer_network():
-	if not active_network:
+	if not active_network:	
 		print("Setting active_network")
 		
 		MultiplayerManager.multiplayer_mode_enabled = true
@@ -37,10 +37,13 @@ func become_host(is_dedicated_server = false):
 	MultiplayerManager.host_mode_enabled = true if is_dedicated_server == false else false
 	active_network.become_host()
 	
-func join_as_client(lobby_id = 0):
+func join_as_client(lobby_id = 0, address = ""):
 	_build_multiplayer_network()
-	active_network.join_as_client(lobby_id)
-	
+	if active_network_type == NETWORK_TYPE.STEAM:
+		active_network.join_as_client(lobby_id)
+	else:
+		active_network.join_as_client(address)
+
 func list_lobbies():
 	_build_multiplayer_network()
 	active_network.list_lobbies()
