@@ -1,12 +1,12 @@
 [gd_scene load_steps=18 format=3 uid="uid://snk35r3rtgsf"]
 
-[ext_resource type="Script" uid="uid://c7qw8jpb8y373" path="res://player.gd" id="1_4flbx"]
+[ext_resource type="Script" uid="uid://c7qw8jpb8y373" path="res://scripts/player.gd" id="1_4flbx"]
 [ext_resource type="PackedScene" uid="uid://i1dwufquwl4w" path="res://assets/Character.blend" id="2_i3pqv"]
-[ext_resource type="Script" uid="uid://ddgpytddr1n72" path="res://camera_spring_arm.gd" id="2_onrkg"]
-[ext_resource type="Script" uid="uid://7ujj0fhdpae3" path="res://hand.gd" id="3_sweqy"]
-[ext_resource type="PackedScene" uid="uid://cupogmlrh2i7m" path="res://muzzle_flash.tscn" id="4_1jxqw"]
+[ext_resource type="Script" uid="uid://ddgpytddr1n72" path="res://scripts/camera_spring_arm.gd" id="2_onrkg"]
+[ext_resource type="Script" uid="uid://7ujj0fhdpae3" path="res://scripts/hand.gd" id="3_sweqy"]
+[ext_resource type="PackedScene" uid="uid://cupogmlrh2i7m" path="res://scenes/muzzle_flash.tscn" id="4_1jxqw"]
 [ext_resource type="PackedScene" uid="uid://c7l75f8fcxq4c" path="res://assets/Pistol.blend" id="4_hqtel"]
-[ext_resource type="Script" uid="uid://oewxytkn6r4r" path="res://crosshair.gd" id="7_1jxqw"]
+[ext_resource type="Script" uid="uid://oewxytkn6r4r" path="res://scripts/crosshair.gd" id="7_1jxqw"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_i3pqv"]
 

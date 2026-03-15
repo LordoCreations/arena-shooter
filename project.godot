@@ -17,7 +17,7 @@ config/icon="res://icon.svg"
 
 [autoload]
 
-ImpactManager="*res://ImpactManager.gd"
+ImpactManager="*res://scripts/ImpactManager.gd"
 SteamManager="*res://multiplayer/steam_manager.gd"
 MultiplayerManager="*res://multiplayer/multiplayer_manager.gd"
 

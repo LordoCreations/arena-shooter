@@ -45,7 +45,7 @@ var health: float = max_health
 # --- Animations ---
 @onready var anim_player := $AnimationPlayer
 @export var idle_time: float = 2.0
-@export var muzzle_flash = preload("res://muzzle_flash.tscn")
+@export var muzzle_flash = preload("res://scenes/muzzle_flash.tscn")
 @onready var flash_parent = $EquipmentPivot/Hand/Gun/MuzzleFlash
 
 # --- Game ---

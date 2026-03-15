@@ -1,6 +1,6 @@
 [gd_scene load_steps=5 format=3 uid="uid://m6lr1i2clc8d"]
 
-[ext_resource type="PackedScene" uid="uid://pcbdl6w8edqq" path="res://terrain_part.tscn" id="1_kcf54"]
+[ext_resource type="PackedScene" uid="uid://pcbdl6w8edqq" path="res://scenes/terrain_part.tscn" id="1_kcf54"]
 
 [sub_resource type="ParticleProcessMaterial" id="ParticleProcessMaterial_kcf54"]
 emission_shape = 1

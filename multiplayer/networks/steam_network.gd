@@ -3,7 +3,7 @@ extends Node
 const LOBBY_NAME = "3DShooter"
 const LOBBY_MODE = "CoOP"
 
-var multiplayer_scene = preload("res://player.tscn")
+var multiplayer_scene = preload("res://scenes/player.tscn")
 var multiplayer_peer: SteamMultiplayerPeer = SteamMultiplayerPeer.new()
 var _hosted_lobby_id = 0
 

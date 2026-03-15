@@ -1,7 +1,7 @@
 [gd_scene load_steps=8 format=3 uid="uid://cupogmlrh2i7m"]
 
 [ext_resource type="Texture2D" uid="uid://5b27d4k4q8g8" path="res://addons/kenney_particle_pack/star_06.png" id="1_k4mlb"]
-[ext_resource type="Script" uid="uid://c8i03fx03pifd" path="res://muzzle_flash.gd" id="2_7gvi6"]
+[ext_resource type="Script" uid="uid://c8i03fx03pifd" path="res://scripts/muzzle_flash.gd" id="2_7gvi6"]
 
 [sub_resource type="Gradient" id="Gradient_1jxqw"]
 offsets = PackedFloat32Array(0, 0.18181819, 1)

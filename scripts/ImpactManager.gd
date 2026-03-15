@@ -1,9 +1,9 @@
 extends Node
 
 # Scenes to pool
-var BulletDecalScene := preload("res://bullet_decal.tscn")
-var TerrainPartScene := preload("res://terrain_part.tscn")
-var EnemyPartScene := preload("res://enemy_part.tscn")
+var BulletDecalScene := preload("res://scenes/bullet_decal.tscn")
+var TerrainPartScene := preload("res://scenes/terrain_part.tscn")
+var EnemyPartScene := preload("res://scenes/enemy_part.tscn")
 
 # Pool settings
 var pool_size = 30

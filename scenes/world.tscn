@@ -1,9 +1,9 @@
 [gd_scene load_steps=8 format=3 uid="uid://c3g4j2ygkydr7"]
 
-[ext_resource type="PackedScene" uid="uid://cllmeko3a5vn" path="res://environment.tscn" id="1_f3sb7"]
-[ext_resource type="Script" uid="uid://clhs6sawiwggj" path="res://world.gd" id="1_tlwt5"]
-[ext_resource type="Script" uid="uid://di8hsbrc5je2w" path="res://multiplayer/networks/network_manager.gd" id="2_tlwt5"]
-[ext_resource type="Script" uid="uid://dqw4rl22ubxv4" path="res://notifications.gd" id="4_aqk2v"]
+[ext_resource type="Script" uid="uid://clhs6sawiwggj" path="res://scripts/world.gd" id="1_k0juu"]
+[ext_resource type="Script" uid="uid://di8hsbrc5je2w" path="res://multiplayer/networks/network_manager.gd" id="2_71j4m"]
+[ext_resource type="PackedScene" uid="uid://cllmeko3a5vn" path="res://scenes/environment.tscn" id="3_qfnet"]
+[ext_resource type="Script" uid="uid://dqw4rl22ubxv4" path="res://scripts/notifications.gd" id="4_i7141"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_fj7yv"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -19,11 +19,11 @@ tonemap_mode = 2
 glow_enabled = true
 
 [node name="World" type="Node"]
-script = ExtResource("1_tlwt5")
+script = ExtResource("1_k0juu")
 
 [node name="NetworkManager" type="Node" parent="." node_paths=PackedStringArray("_players_spawn_node")]
 unique_name_in_owner = true
-script = ExtResource("2_tlwt5")
+script = ExtResource("2_71j4m")
 _players_spawn_node = NodePath("../Players")
 
 [node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
@@ -33,7 +33,7 @@ shadow_enabled = true
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_aqk2v")
 
-[node name="Environment" parent="." instance=ExtResource("1_f3sb7")]
+[node name="Environment" parent="." instance=ExtResource("3_qfnet")]
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
@@ -131,10 +131,9 @@ size_flags_vertical = 3
 [node name="Notifications" type="PanelContainer" parent="CanvasLayer"]
 offset_right = 40.0
 offset_bottom = 40.0
-script = ExtResource("4_aqk2v")
+script = ExtResource("4_i7141")
 
 [node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="."]
-_spawnable_scenes = PackedStringArray("uid://snk35r3rtgsf")
 spawn_path = NodePath("../Players")
 
 [node name="Players" type="Node3D" parent="."]
