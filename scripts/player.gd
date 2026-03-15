@@ -29,14 +29,11 @@ var current_speed: float = 0.0
 
 # --- Equipment ---
 @onready var equipment := $EquipmentPivot
-@onready var bullet_cast := $EquipmentPivot/Hand/Gun/RayCast3D	
+@onready var active_gun = $EquipmentPivot/Hand/Gun
 
-var can_shoot: bool = true
-@onready var fire_rate := $Firerate
 signal firing(is_firing: bool)
 
 @export var ads_speed_mult: float = 0.6 # 60% speed while aiming
-@export var recoil_power: Vector2 = Vector2(2, 0.03)
 
 # --- Health ---
 @export var max_health: float = 3.0
@@ -45,8 +42,6 @@ var health: float = max_health
 # --- Animations ---
 @onready var anim_player := $AnimationPlayer
 @export var idle_time: float = 2.0
-@export var muzzle_flash = preload("res://scenes/muzzle_flash.tscn")
-@onready var flash_parent = $EquipmentPivot/Hand/Gun/MuzzleFlash
 
 # --- Game ---
 @onready var spawn_loc = get_parent()
@@ -99,6 +94,9 @@ func _unhandled_input(_event: InputEvent) -> void:
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
 		update_nameplate_visibility()
+		return
+	
+	if not MultiplayerManager.controls_enabled:
 		return
 	
 	# Check sprint state before movement logic
@@ -228,16 +226,16 @@ func update_nameplate_visibility():
 		username_tag.hide()
 
 func shoot() -> void:
-	if not can_shoot: return
-	can_shoot = false
-	fire_rate.start()
+	if not active_gun.try_shoot(): return
 	
-	var kick = Vector2(recoil_power.x, randf_range(-recoil_power.y, recoil_power.y))
+	var kick = Vector2(active_gun.recoil_power.x, randf_range(-active_gun.recoil_power.y, active_gun.recoil_power.y))
 	camera_arm.apply_recoil(kick)
 	
-	fire_shot.rpc() # Visuals for the gun (muzzle flash)
+	fire_shot.rpc()
+	active_gun.play_fire_effects.rpc()
 	firing.emit(true)
 	
+	var bullet_cast = active_gun.bullet_cast
 	if bullet_cast.is_colliding():
 		var hit_obj = bullet_cast.get_collider()
 		var col_point = bullet_cast.get_collision_point()
@@ -265,11 +263,6 @@ func _on_aim_toggled(aiming: bool) -> void:
 func fire_shot() -> void:
 	animate("shoot")
 	last_active_time = Time.get_ticks_msec()
-	var flash = muzzle_flash.instantiate()
-	flash_parent.add_child(flash)
-	flash.global_transform = flash_parent.global_transform
-	
-	flash.emitting = true
 
 @rpc("any_peer")
 func hurt(damage: float):
@@ -283,7 +276,7 @@ func hurt(damage: float):
 
 func _ready():
 	if is_multiplayer_authority():
-		username = get_node_or_null("../../CanvasLayer/MainMenu/MarginContainer/VBoxContainer/Username").text
+		username = MultiplayerManager.player_username
 		username = username if username and len(username) > 0 else "Player " + str(player_id)
 		username_tag.text = username
 		username_tag.hide()
@@ -303,9 +296,6 @@ func _ready():
 
 	# Connect to the camera's signal
 	camera_arm.aim_toggled.connect(_on_aim_toggled)
-
-func _on_firerate_timeout() -> void:
-	can_shoot = true
 
 func spawn() -> void:
 	health = max_health

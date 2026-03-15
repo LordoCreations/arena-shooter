@@ -47,3 +47,32 @@ func join_as_client(lobby_id = 0, address = ""):
 func list_lobbies():
 	_build_multiplayer_network()
 	active_network.list_lobbies()
+
+func get_lobby_display() -> String:
+	if not active_network:
+		return ""
+	if active_network.has_method("get_lobby_display"):
+		return active_network.get_lobby_display()
+	return ""
+
+func is_host() -> bool:
+	if not active_network:
+		return false
+	if active_network.has_method("is_host"):
+		return active_network.is_host()
+	return MultiplayerManager.host_mode_enabled
+
+func get_lobby_members() -> Array:
+	if not active_network:
+		return []
+	if active_network.has_method("get_lobby_members"):
+		return active_network.get_lobby_members()
+	return []
+
+func kick_member(member_id, id_type: String = "peer") -> void:
+	if active_network and active_network.has_method("kick_member"):
+		active_network.kick_member(member_id, id_type)
+
+func transfer_lobby_ownership(member_id, id_type: String = "peer") -> void:
+	if active_network and active_network.has_method("transfer_lobby_ownership"):
+		active_network.transfer_lobby_ownership(member_id, id_type)

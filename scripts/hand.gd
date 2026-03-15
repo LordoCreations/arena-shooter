@@ -63,11 +63,22 @@ func _process(delta: float) -> void:
 	var final_origin = (pow(1-t, 2) * p0) + (2 * (1-t) * t * p1) + (pow(t, 2) * p2)
 
 	# --- 3. FINAL TRANSFORM ---
-	# Use the camera's basis as the foundation for rotation
-	var target_point = aim_ray.get_collision_point() if aim_ray.is_colliding() else ray_end
+	# Use a minimum distance so the gun doesn't spin when pressed against a wall
+	var min_look_dist: float = 1.2
+	var target_point: Vector3
+	if aim_ray.is_colliding():
+		var hit = aim_ray.get_collision_point()
+		if hit.distance_to(global_transform.origin) >= min_look_dist:
+			target_point = hit
+		else:
+			target_point = global_transform.origin - camera.global_transform.basis.z * min_look_dist
+	else:
+		target_point = ray_end
 	
 	global_transform.origin = final_origin
 	
-	# Smoothly point the gun at the target
-	var look_trans = global_transform.looking_at(target_point, Vector3.UP)
+	# Smoothly point the gun at the target; fall back to FORWARD up when looking nearly vertical
+	var look_dir = (target_point - global_transform.origin).normalized()
+	var up_vec = Vector3.UP if abs(look_dir.dot(Vector3.UP)) < 0.99 else Vector3.FORWARD
+	var look_trans = global_transform.looking_at(target_point, up_vec)
 	global_transform.basis = global_transform.basis.slerp(look_trans.basis, rotation_speed * delta)

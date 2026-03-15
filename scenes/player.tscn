@@ -1,11 +1,10 @@
-[gd_scene load_steps=18 format=3 uid="uid://snk35r3rtgsf"]
+[gd_scene load_steps=17 format=3 uid="uid://snk35r3rtgsf"]
 
 [ext_resource type="Script" uid="uid://c7qw8jpb8y373" path="res://scripts/player.gd" id="1_4flbx"]
 [ext_resource type="PackedScene" uid="uid://i1dwufquwl4w" path="res://assets/Character.blend" id="2_i3pqv"]
 [ext_resource type="Script" uid="uid://ddgpytddr1n72" path="res://scripts/camera_spring_arm.gd" id="2_onrkg"]
 [ext_resource type="Script" uid="uid://7ujj0fhdpae3" path="res://scripts/hand.gd" id="3_sweqy"]
-[ext_resource type="PackedScene" uid="uid://cupogmlrh2i7m" path="res://scenes/muzzle_flash.tscn" id="4_1jxqw"]
-[ext_resource type="PackedScene" uid="uid://c7l75f8fcxq4c" path="res://assets/Pistol.blend" id="4_hqtel"]
+[ext_resource type="PackedScene" path="res://scenes/gun.tscn" id="4_hqtel"]
 [ext_resource type="Script" uid="uid://oewxytkn6r4r" path="res://scripts/crosshair.gd" id="7_1jxqw"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_i3pqv"]
@@ -196,14 +195,6 @@ script = ExtResource("3_sweqy")
 
 [node name="Gun" parent="EquipmentPivot/Hand" instance=ExtResource("4_hqtel")]
 
-[node name="MuzzleFlash" parent="EquipmentPivot/Hand/Gun" instance=ExtResource("4_1jxqw")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.12168217, -0.66287124)
-
-[node name="RayCast3D" type="RayCast3D" parent="EquipmentPivot/Hand/Gun"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.122, 0)
-target_position = Vector3(0, 0, -50)
-collision_mask = 3
-
 [node name="Character" parent="." instance=ExtResource("2_i3pqv")]
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
@@ -314,13 +305,10 @@ playback_default_blend_time = 0.3
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
 replication_config = SubResource("SceneReplicationConfig_2hs0m")
 
-[node name="Firerate" type="Timer" parent="."]
-wait_time = 0.25
-
 [node name="Username" type="Label3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 2
 text = "Player
 "
 
-[connection signal="timeout" from="Firerate" to="." method="_on_firerate_timeout"]
+

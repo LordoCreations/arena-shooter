@@ -57,3 +57,40 @@ func get_local_ip() -> String:
 			if ip.begins_with("192.168.") or ip.begins_with("10."):
 				return ip
 	return "127.0.0.1"
+
+func get_lobby_display() -> String:
+	if multiplayer.is_server():
+		return "%s:%s" % [get_local_ip(), SERVER_PORT]
+	return "%s:%s" % [SERVER_IP, SERVER_PORT]
+
+func is_host() -> bool:
+	return multiplayer.is_server()
+
+func get_lobby_members() -> Array:
+	var members: Array = []
+	var local_id = multiplayer.get_unique_id()
+	members.append({
+		"id": local_id,
+		"id_type": "peer",
+		"name": "Player %s" % local_id,
+		"can_kick": false,
+		"can_transfer": false,
+	})
+	for peer_id in multiplayer.get_peers():
+		members.append({
+			"id": peer_id,
+			"id_type": "peer",
+			"name": "Player %s" % peer_id,
+			"can_kick": multiplayer.is_server(),
+			"can_transfer": false,
+		})
+	return members
+
+func kick_member(member_id, _id_type: String = "peer") -> void:
+	if not multiplayer.is_server():
+		if notifications:
+			notifications.notify("Only the host can kick players.", true)
+		return
+	if member_id == multiplayer.get_unique_id():
+		return
+	multiplayer_peer.disconnect_peer(member_id)

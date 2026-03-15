@@ -37,7 +37,8 @@ environment = SubResource("Environment_aqk2v")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
-[node name="MainMenu" type="PanelContainer" parent="CanvasLayer"]
+[node name="PauseMenu" type="PanelContainer" parent="CanvasLayer"]
+visible = false
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -46,87 +47,88 @@ grow_vertical = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/MainMenu"]
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/PauseMenu"]
 layout_mode = 2
 theme_override_constants/margin_left = 15
 theme_override_constants/margin_top = 15
 theme_override_constants/margin_right = 15
 theme_override_constants/margin_bottom = 15
 
-[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/MainMenu/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/PauseMenu/MarginContainer"]
 layout_mode = 2
 theme_override_constants/separation = 15
 
-[node name="Label" type="Label" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
-text = "Main Menu"
+text = "Game Menu"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="HostButton" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
+[node name="LobbyInfo" type="Label" parent="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
-text = "Host LAN"
+text = "Lobby Info: N/A"
+horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="JoinButton" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
+[node name="ReturnGame" type="Button" parent="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
-text = "Join LAN
-"
+text = "Return Game"
 
-[node name="Address" type="LineEdit" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
+[node name="MainMenu" type="Button" parent="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
-placeholder_text = "Enter Local Address"
-alignment = 1
+text = "Main Menu"
 
-[node name="JoinSteam" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
+[node name="QuitGame" type="Button" parent="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
-text = "Use Steam"
+text = "Quit Game"
 
-[node name="Username" type="LineEdit" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
+[node name="LobbyControlsButton" type="Button" parent="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
-placeholder_text = "Enter your Username"
-alignment = 1
+text = "Lobby Controls"
 
-[node name="SteamHUD" type="PanelContainer" parent="CanvasLayer"]
+[node name="LobbyControls" type="PanelContainer" parent="CanvasLayer"]
 visible = false
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
 anchor_right = 0.5
 anchor_bottom = 0.5
-offset_left = -81.5
-offset_top = -50.0
-offset_right = 81.5
-offset_bottom = 50.0
+offset_left = -150.0
+offset_top = -120.0
+offset_right = 150.0
+offset_bottom = 120.0
 grow_horizontal = 2
 grow_vertical = 2
 size_flags_vertical = 3
 
-[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/SteamHUD"]
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/LobbyControls"]
 layout_mode = 2
 theme_override_constants/margin_left = 15
 theme_override_constants/margin_top = 15
 theme_override_constants/margin_right = 15
 theme_override_constants/margin_bottom = 15
 
-[node name="Options" type="VBoxContainer" parent="CanvasLayer/SteamHUD/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/LobbyControls/MarginContainer"]
 layout_mode = 2
 
-[node name="HostP2PGame" type="Button" parent="CanvasLayer/SteamHUD/MarginContainer/Options"]
+[node name="Label" type="Label" parent="CanvasLayer/LobbyControls/MarginContainer/VBoxContainer"]
 layout_mode = 2
-text = "Host P2P Game"
+text = "Lobby Controls"
+horizontal_alignment = 1
+vertical_alignment = 1
 
-[node name="ListLobbies" type="Button" parent="CanvasLayer/SteamHUD/MarginContainer/Options"]
-layout_mode = 2
-text = "List P2P Lobbies"
-
-[node name="Lobbies" type="ScrollContainer" parent="CanvasLayer/SteamHUD/MarginContainer/Options"]
+[node name="PlayerScroll" type="ScrollContainer" parent="CanvasLayer/LobbyControls/MarginContainer/VBoxContainer"]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/SteamHUD/MarginContainer/Options/Lobbies"]
+[node name="PlayerList" type="VBoxContainer" parent="CanvasLayer/LobbyControls/MarginContainer/VBoxContainer/PlayerScroll"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+
+[node name="CloseLobbyControls" type="Button" parent="CanvasLayer/LobbyControls/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Close"
 
 [node name="Notifications" type="PanelContainer" parent="CanvasLayer"]
 offset_right = 40.0
@@ -139,9 +141,9 @@ spawn_path = NodePath("../Players")
 [node name="Players" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 24.271395, 0)
 
-[connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/HostButton" to="." method="_on_host_button_pressed"]
-[connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/JoinButton" to="." method="_on_join_button_pressed"]
-[connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/JoinSteam" to="." method="_on_join_steam_pressed"]
-[connection signal="pressed" from="CanvasLayer/SteamHUD/MarginContainer/Options/HostP2PGame" to="." method="_on_host_p_2p_game_pressed"]
-[connection signal="pressed" from="CanvasLayer/SteamHUD/MarginContainer/Options/ListLobbies" to="." method="_on_list_lobbies_pressed"]
+[connection signal="pressed" from="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer/ReturnGame" to="." method="_on_return_game_pressed"]
+[connection signal="pressed" from="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer/MainMenu" to="." method="_on_main_menu_pressed"]
+[connection signal="pressed" from="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer/QuitGame" to="." method="_on_quit_game_pressed"]
+[connection signal="pressed" from="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer/LobbyControlsButton" to="." method="_on_lobby_controls_pressed"]
+[connection signal="pressed" from="CanvasLayer/LobbyControls/MarginContainer/VBoxContainer/CloseLobbyControls" to="." method="_on_close_lobby_controls_pressed"]
 [connection signal="spawned" from="MultiplayerSpawner" to="." method="_on_multiplayer_spawner_spawned"]

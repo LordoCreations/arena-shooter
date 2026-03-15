@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="3dShooter"
-run/main_scene="uid://c3g4j2ygkydr7"
+run/main_scene="res://scenes/main_menu.tscn"
 config/features=PackedStringArray("4.5", "Forward Plus")
 config/icon="res://icon.svg"
 
@@ -20,6 +20,12 @@ config/icon="res://icon.svg"
 ImpactManager="*res://scripts/ImpactManager.gd"
 SteamManager="*res://multiplayer/steam_manager.gd"
 MultiplayerManager="*res://multiplayer/multiplayer_manager.gd"
+UIScaler="*res://scripts/ui_scaler.gd"
+
+[display]
+
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
 
 [editor]
 

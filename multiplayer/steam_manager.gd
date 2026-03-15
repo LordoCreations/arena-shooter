@@ -15,20 +15,22 @@ func _init() -> void:
 func _process(_delta: float) -> void:
 	Steam.run_callbacks()
 
-func initialize_steam() -> void:
+func initialize_steam() -> bool:
 	var initialize_response: Dictionary = Steam.steamInitEx()
 	if initialize_response["status"] > 0:
 		print("Failed to Initialize Steam! Error %s" % initialize_response)
-		get_tree().quit()
+		return false
 	
 	is_owned = Steam.isSubscribed()
 	steam_id = Steam.getSteamID()
 	steam_username = Steam.getPersonaName()
 	
-	print(steam_username)
-	
-	print("steam id: %s" % steam_id)
+	print("Steam initialized successfully")
+	print("Steam username: %s" % steam_username)
+	print("Steam id: %s" % steam_id)
 	
 	if !is_owned:
 		print("Failed to find Ownership!")
-		get_tree().quit()
+		return false
+	
+	return true
