@@ -4,7 +4,7 @@
 [ext_resource type="PackedScene" uid="uid://i1dwufquwl4w" path="res://assets/Character.blend" id="2_i3pqv"]
 [ext_resource type="Script" uid="uid://ddgpytddr1n72" path="res://scripts/camera_spring_arm.gd" id="2_onrkg"]
 [ext_resource type="Script" uid="uid://7ujj0fhdpae3" path="res://scripts/hand.gd" id="3_sweqy"]
-[ext_resource type="PackedScene" path="res://scenes/gun.tscn" id="4_hqtel"]
+[ext_resource type="PackedScene" uid="uid://brict2iq6v5fl" path="res://scenes/gun.tscn" id="4_hqtel"]
 [ext_resource type="Script" uid="uid://oewxytkn6r4r" path="res://scripts/crosshair.gd" id="7_1jxqw"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_i3pqv"]
@@ -310,5 +310,3 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 2
 text = "Player
 "
-
-

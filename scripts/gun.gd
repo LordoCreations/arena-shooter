@@ -1,6 +1,6 @@
 extends Node3D
 
-@export var fire_rate_time: float = 0.25
+@export var fire_rate_time: float = 0.1
 @export var recoil_power: Vector2 = Vector2(2, 0.03)
 
 @onready var fire_rate_timer: Timer = $Firerate
