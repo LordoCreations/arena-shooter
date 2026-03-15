@@ -16,8 +16,9 @@ uv1_triplanar = true
 [node name="Environment" instance=ExtResource("1_wetts")]
 
 [node name="GPUParticlesCollisionSDF3D" type="GPUParticlesCollisionSDF3D" parent="." index="0"]
-size = Vector3(70, 15, 70)
-resolution = 3
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 3, 0)
+size = Vector3(70, 10, 70)
+resolution = 4
 thickness = 2.0
 texture = ExtResource("4_00014")
 

@@ -4,20 +4,13 @@ extends Node
 
 # --- Menu ---
 @onready var main_menu = $CanvasLayer/MainMenu
-@onready var address_entry = $CanvasLayer/MainMenu/MarginContainer/VBoxContainer/AddressEntry
+@onready var address = $CanvasLayer/MainMenu/MarginContainer/VBoxContainer/Address
 
-# --- HUD ---
-@onready var hud = $CanvasLayer/HUD
-@onready var health_bar = $CanvasLayer/HUD/MarginContainer/HealthBar
+# --- Steam ---
+@onready var steam_menu := $CanvasLayer/SteamHUD 
+@onready var steam_lobbies := $CanvasLayer/SteamHUD/MarginContainer/Options/Lobbies/VBoxContainer
 
-
-# --- Multiplayer ---
-const PORT = 9999
-var enet_peer = ENetMultiplayerPeer.new()
-
-const Player = preload("res://player.tscn")
-
-func _unhandled_input(event: InputEvent) -> void:
+func _unhandled_input(_event: InputEvent) -> void:
 	if Input.is_action_just_pressed("quit"):
 		pause = !pause
 		if pause:
@@ -27,63 +20,76 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _on_host_button_pressed() -> void:
+	%NetworkManager.active_network_type = %NetworkManager.NETWORK_TYPE.ENET
+	%NetworkManager.become_host()
 	start_game()
-	enet_peer.create_server(PORT)
-	multiplayer.multiplayer_peer = enet_peer
-	multiplayer.peer_connected.connect(add_player)
-	multiplayer.peer_disconnected.connect(remove_player)
 
-	add_player(multiplayer.get_unique_id())
-	
-	upnp_setup()
 
 func _on_join_button_pressed() -> void:
+	var address_to_join = address.text
+	if len(address_to_join) == 0:
+		address_to_join = "localhost"
+	%NetworkManager.active_network_type = %NetworkManager.NETWORK_TYPE.ENET
+	%NetworkManager.join_as_client(0, address_to_join)
 	start_game()
-	if len(address_entry.text) > 0:
-		enet_peer.create_client(address_entry.text, PORT)
-	else:
-		enet_peer.create_client("localhost", PORT)
 
-	multiplayer.multiplayer_peer = enet_peer
-
-func add_player(peer_id):
-	var player = Player.instantiate()
-	player.name = str(peer_id)
-	add_child(player)
-	if player.is_multiplayer_authority():
-		player.health_changed.connect(update_health)
-
-func remove_player(peer_id):
-	var player = get_node_or_null(str(peer_id))
-	if player:
-		player.queue_free()
 
 func start_game() -> void:
 	main_menu.hide()
-	hud.show()
+	steam_menu.hide()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 
-func update_health(health: float, maxhealth: float):	
-	health_bar.value = 100 * (health / maxhealth)
-	print(str(health_bar.value) + " = " + str(health) + "/" +str(maxhealth))
+# --- Steam Functionality ---
+
+func join_lobby(lobby_id = 0) -> void:
+	%NetworkManager.join_as_client(lobby_id)
+	start_game()
+
+func _on_join_steam_pressed() -> void:
+	main_menu.hide()
+	steam_menu.show()
+	%NetworkManager.active_network_type = %NetworkManager.NETWORK_TYPE.STEAM
+	SteamManager.initialize_steam()
+	Steam.lobby_match_list.connect(_on_lobby_match_list)
+	_on_list_lobbies_pressed()
 
 
-func _on_multiplayer_spawner_spawned(node: Node) -> void:
-	if node.is_multiplayer_authority():
-		node.health_changed.connect(update_health)
+func _on_list_lobbies_pressed() -> void:
+	if %NetworkManager.active_network_type != %NetworkManager.NETWORK_TYPE.STEAM:
+		_on_join_steam_pressed()
+	%NetworkManager.list_lobbies()
 
 
+func _on_host_p_2p_game_pressed() -> void:
+	if %NetworkManager.active_network_type != %NetworkManager.NETWORK_TYPE.STEAM:
+		_on_join_steam_pressed()
+	%NetworkManager.become_host()
+	start_game()
 
 
-# --- Over Internet Multiplayer ---
-func upnp_setup() -> void:
+func _on_lobby_match_list(lobbies: Array):
+	print("On lobby match list")
+	print(lobbies)
 	
-	var upnp = UPNP.new()
-	var discover_result = upnp.discover()
-	assert(discover_result == UPNP.UPNP_RESULT_SUCCESS, "UPNP Discover Failed! Error %s" % discover_result)
-	assert(upnp.get_gateway() and upnp.get_gateway().is_valid_gateway(), "UPNP Invalid Gateway! %s" % upnp.get_device_count())
-	
-	var map_result = upnp.add_port_mapping(PORT)
-	assert(map_result == UPNP.UPNP_RESULT_SUCCESS, "UPNP Port Mapping Failed! Error %s" % map_result)
+	for lobby_child in steam_lobbies.get_children():
+		lobby_child.queue_free()
+		
+	for lobby in lobbies:
+		var lobby_name: String = Steam.getLobbyData(lobby, "name")
+		
+		if lobby_name != "":
+			var lobby_mode: String = Steam.getLobbyData(lobby, "mode")
+			
+			var lobby_button: Button = Button.new()
+			lobby_button.set_text(lobby_name + " | " + lobby_mode)
+			lobby_button.set_size(Vector2(100, 30))
+			lobby_button.add_theme_font_size_override("font_size", 14)
+			
+			#var fv = FontVariation.new()
+			#fv.set_base_font(load("res://assets/fonts/PixelOperator8.ttf"))
+			#lobby_button.add_theme_font_override("font", fv)
+			lobby_button.set_name("lobby_%s" % lobby)
+			lobby_button.alignment = HORIZONTAL_ALIGNMENT_FILL
+			lobby_button.connect("pressed", Callable(self, "join_lobby").bind(lobby))
 
-	print("success! join address %s" % upnp.query_external_address())
+			steam_lobbies.add_child(lobby_button)
