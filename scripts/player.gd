@@ -40,7 +40,8 @@ signal firing(is_firing: bool)
 var health: float = max_health
 
 # --- Animations ---
-@onready var anim_player := $AnimationPlayer
+@onready var animation_tree : AnimationTree = $Character/Container/AnimationTree
+@onready var state_machine_pb : AnimationNodeStateMachinePlayback = $Character/Container/AnimationTree.get("parameters/playback")
 @export var idle_time: float = 2.0
 
 # --- Game ---
@@ -59,19 +60,17 @@ var username = ""
 func _enter_tree() -> void:
 	set_multiplayer_authority(str(name).to_int())
 
-func animate(type: String) -> void:
-	if anim_player.current_animation == "shoot": # optimize later
-		return
-	match type:
-		"move":
-			if is_on_floor() and current_speed > walk_speed: anim_player.play("move")
-			else: anim_player.play("RESET")
-		"idle":
-			if Time.get_ticks_msec() - last_active_time >  idle_time * 1000 and not is_aiming: anim_player.play("idle")
-			else: anim_player.play("RESET")
-		"shoot":
-			anim_player.stop()
-			anim_player.play("shoot")
+func animate() -> void:
+	# TODO Jumping animations?
+	var rel_vel = visuals.global_transform.basis.inverse() * ((self.velocity * Vector3(1, 0, 1)) / get_move_speed())
+	var rel_vel_xz = Vector2(rel_vel.x, -rel_vel.z)
+	
+	if is_sprinting:
+		state_machine_pb.travel("RunBlendSpace2D")
+		animation_tree.set("parameters/RunBlendSpace2D/blend_position", rel_vel_xz)
+	else:
+		state_machine_pb.travel("WalkBlendSpace2D")
+		animation_tree.set("parameters/WalkBlendSpace2D/blend_position", rel_vel_xz)
 
 func calculate_jump_velocity() -> float:
 	var tslj = (Time.get_ticks_msec() - floor_time) / 1000.0
@@ -114,6 +113,9 @@ func _physics_process(delta: float) -> void:
 	var target_pos = camera.global_transform.origin - camera.global_transform.basis.z * 100.0
 	equipment.look_at(target_pos, Vector3.UP)
 
+func get_move_speed() -> float:
+	return sprint_speed if is_sprinting else walk_speed;
+
 func move(delta: float) -> void:
 	if not is_on_floor():
 		velocity += get_gravity() * 2.5 * delta
@@ -122,7 +124,7 @@ func move(delta: float) -> void:
 	var speed_multiplier = 1.0
 	
 	# 1. Base Sprint/Walk speed
-	var base_target_speed = sprint_speed if is_sprinting else walk_speed
+	var base_target_speed = get_move_speed()
 	
 	# 2. Apply ADS Penalty
 	if is_aiming:
@@ -164,37 +166,16 @@ func move(delta: float) -> void:
 		velocity.y = calculate_jump_velocity() 
 	
 	# Visual Rotation and Animation
-	handle_visuals(delta, direction)
+	handle_visuals(delta)
 	move_and_slide()
 
-func handle_visuals(delta: float, direction: Vector3) -> void:
+func handle_visuals(delta: float) -> void:
 	var camera_yaw = camera_arm.rotation.y
 	
-	if direction.length() > 0.1:
-		# 1. Calculate the angle the character WOULD face if they turned fully
-		var movement_angle = atan2(-direction.x, -direction.z)
-		
-		# 2. Get the difference between where the camera is looking and the movement
-		var angle_diff = angle_difference(camera_yaw, movement_angle)
-		
-		# 3. 1.0 = Forward, 0.0 = Strafe, -1.0 = Back
-		var input_dir := Input.get_vector("left", "right", "up", "down")
-		var forward_dot = input_dir.normalized().dot(Vector2.UP)
-		
-		# 4. Map the dot product to a rotation weight
-		# Forward (1.0) -> 100% of the movement angle
-		# Backward (-1.0) -> 30% of the movement angle
-		var turn_weight = remap(forward_dot, -1.0, 1.0, 0.0, 1.0)
-		
-		# 5. Calculate final yaw: Start at camera look, add a weighted slice of the movement turn
-		var target_visual_yaw = camera_yaw + (angle_diff * turn_weight)
-		
-		visuals.rotation.y = lerp_angle(visuals.rotation.y, target_visual_yaw, rotation_speed * delta)
-		animate("move")
-	else:
-		# When standing still, always face the camera direction
-		visuals.rotation.y = lerp_angle(visuals.rotation.y, camera_yaw, rotation_speed * delta)
-		animate("idle")
+	self.rotation.y = camera_arm.rotation.y
+	visuals.rotation.y = lerp_angle(visuals.rotation.y, camera_yaw, rotation_speed * delta)
+
+	animate()
 
 func update_nameplate_visibility():
 	# 1. Get the local player's camera
@@ -261,7 +242,6 @@ func _on_aim_toggled(aiming: bool) -> void:
 
 @rpc("call_local")
 func fire_shot() -> void:
-	animate("shoot")
 	last_active_time = Time.get_ticks_msec()
 
 @rpc("any_peer")
