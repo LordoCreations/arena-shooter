@@ -108,6 +108,9 @@ func _on_connection_failed() -> void:
 
 func _on_server_disconnected() -> void:
 	_join_timeout_timer.stop()
+	if multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED:
+		multiplayer_peer.close()
+	multiplayer.multiplayer_peer = null
 	notifications.notify("Disconnected from host.", true)
 	_return_to_main_menu()
 
@@ -180,6 +183,11 @@ func _return_to_main_menu() -> void:
 	if is_instance_valid(_failure_dialog):
 		_failure_dialog.queue_free()
 		_failure_dialog = null
+
+	if multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED:
+		multiplayer_peer.close()
+	multiplayer.multiplayer_peer = null
+	multiplayer_peer = SteamMultiplayerPeer.new()
 
 	MultiplayerManager.pending_action = ""
 	MultiplayerManager.pending_address = ""

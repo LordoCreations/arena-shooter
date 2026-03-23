@@ -1,8 +1,10 @@
-[gd_scene load_steps=57 format=4 uid="uid://snk35r3rtgsf"]
+[gd_scene load_steps=64 format=4 uid="uid://snk35r3rtgsf"]
 
 [ext_resource type="Script" uid="uid://c7qw8jpb8y373" path="res://scripts/player.gd" id="1_4flbx"]
 [ext_resource type="Script" uid="uid://ddgpytddr1n72" path="res://scripts/camera_spring_arm.gd" id="2_onrkg"]
 [ext_resource type="Script" uid="uid://7ujj0fhdpae3" path="res://scripts/hand.gd" id="3_sweqy"]
+[ext_resource type="PackedScene" uid="uid://ltna52etv66f" path="res://weapons/weapon_manager.tscn" id="3_ur7pv"]
+[ext_resource type="Resource" uid="uid://danie5kuoen4g" path="res://weapons/pistol/pistol.tres" id="3_y4r1p"]
 [ext_resource type="PackedScene" uid="uid://brict2iq6v5fl" path="res://scenes/gun.tscn" id="4_hqtel"]
 [ext_resource type="Texture2D" uid="uid://twxdi5n3xqbx" path="res://assets/orange_astro_Image_0.jpg" id="4_smehm"]
 [ext_resource type="Texture2D" uid="uid://n25cv7h8qjql" path="res://assets/orange_astro_Image_1.jpg" id="5_ur7pv"]
@@ -1273,6 +1275,16 @@ graph_offset = Vector2(24, -42)
 [sub_resource type="SphereShape3D" id="SphereShape3D_i3pqv"]
 radius = 0.3
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud_lag_bg"]
+bg_color = Color(0, 0, 0, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud_lag_fill"]
+bg_color = Color(1, 1, 1, 0.85)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1jxqw"]
 bg_color = Color(0.89411765, 0.40784314, 0.43137255, 0.5529412)
 corner_radius_top_left = 7
@@ -1286,16 +1298,6 @@ expand_margin_bottom = 3.0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_dw050"]
 bg_color = Color(0, 0.7172733, 0.3805772, 1)
-corner_radius_top_left = 5
-corner_radius_top_right = 5
-corner_radius_bottom_right = 5
-corner_radius_bottom_left = 5
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud_lag_bg"]
-bg_color = Color(0, 0, 0, 0)
-
-[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud_lag_fill"]
-bg_color = Color(1, 1, 1, 0.85)
 corner_radius_top_left = 5
 corner_radius_top_right = 5
 corner_radius_bottom_right = 5
@@ -1371,7 +1373,7 @@ properties/16/replication_mode = 1
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_damage_bar_bg"]
 transparency = 1
 shading_mode = 0
-albedo_color = Color(0.89411765, 0.40784314, 0.43137255, 0.5529412)
+albedo_color = Color(0.27569687, 0.06743098, 0.08640223, 0.5529412)
 
 [sub_resource type="QuadMesh" id="QuadMesh_damage_bar"]
 size = Vector2(1.2, 0.12)
@@ -1395,6 +1397,12 @@ albedo_color = Color(1, 0, 0, 0)
 collision_layer = 2
 script = ExtResource("1_4flbx")
 
+[node name="WeaponManager" parent="." node_paths=PackedStringArray("view_model_container", "world_model_container") instance=ExtResource("3_ur7pv")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 1, -0.6)
+current_weapon = ExtResource("3_y4r1p")
+view_model_container = NodePath("../SpringArm3D/Camera3D/ViewModel")
+world_model_container = NodePath("../Character/Container/orange_astro/Armature/Skeleton3D/BoneAttachment3D")
+
 [node name="EquipmentPivot" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 
@@ -1403,6 +1411,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 0, -0.6)
 script = ExtResource("3_sweqy")
 
 [node name="Gun" parent="EquipmentPivot/Hand" instance=ExtResource("4_hqtel")]
+visible = false
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.05, 0)
@@ -1542,6 +1551,13 @@ bones/16/scale = Vector3(0.99999905, 0.9999998, 1)
 mesh = SubResource("ArrayMesh_nppmb")
 skin = SubResource("Skin_limqm")
 
+[node name="BoneAttachment3D" type="BoneAttachment3D" parent="Character/Container/orange_astro/Armature/Skeleton3D"]
+transform = Transform3D(0.9999999, 1.7508864e-07, 1.2929377e-08, 3.5433914e-09, -1.2130477e-07, 1, 1.3411045e-07, -0.9999999, -1.4121179e-07, -0.68810195, 1.0934024, 0.018155864)
+bone_name = "LowerArm.R_leaf"
+bone_idx = 12
+
+[node name="WorldModel" type="Node3D" parent="Character/Container/orange_astro/Armature/Skeleton3D/BoneAttachment3D"]
+
 [node name="AnimationPlayer" type="AnimationPlayer" parent="Character/Container/orange_astro"]
 libraries = {
 &"": SubResource("AnimationLibrary_u61od")
@@ -1561,6 +1577,10 @@ margin = 0.1
 script = ExtResource("2_onrkg")
 
 [node name="Camera3D" type="Camera3D" parent="SpringArm3D"]
+cull_mask = 1048573
+
+[node name="ViewModel" type="Node3D" parent="SpringArm3D/Camera3D"]
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 0, 0, 0)
 
 [node name="Convergence" type="RayCast3D" parent="SpringArm3D/Camera3D"]
 target_position = Vector3(0, 0, -50)
@@ -1642,12 +1662,12 @@ custom_minimum_size = Vector2(200, 20)
 layout_mode = 2
 size_flags_horizontal = 0
 size_flags_vertical = 8
+mouse_filter = 2
 theme_override_styles/background = SubResource("StyleBoxFlat_hud_lag_bg")
 theme_override_styles/fill = SubResource("StyleBoxFlat_hud_lag_fill")
 value = 100.0
 rounded = true
 show_percentage = false
-mouse_filter = 2
 
 [node name="HealthBar" type="ProgressBar" parent="SpringArm3D/Camera3D/HUD/MarginContainer"]
 custom_minimum_size = Vector2(200, 20)
@@ -1674,8 +1694,8 @@ offset_right = 165.0
 offset_bottom = 78.0
 grow_horizontal = 2
 grow_vertical = 2
-theme_override_styles/panel = SubResource("StyleBoxFlat_hit_flash")
 mouse_filter = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hit_flash")
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
 replication_config = SubResource("SceneReplicationConfig_2hs0m")

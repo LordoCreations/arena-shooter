@@ -2,10 +2,13 @@ extends SpringArm3D
 
 @export var mouse_sensitivity: float = 0.005
 @export var lerp_speed: float = 12.0
+@export var min_pitch: float = -PI / 3
+@export var max_pitch: float = PI / 4
 
 # --- Recoil Settings ---
 @export var recoil_recovery: float = 10.0
 @export var recoil_snap: float = 5.0
+@export var recoil_persistent_ratio: float = 0.25
 
 @onready var camera: Camera3D = $Camera3D
 signal aim_toggled(is_aiming: bool)
@@ -38,7 +41,7 @@ func _unhandled_input(event: InputEvent) -> void:
 		
 		mouse_yaw -= event.relative.x * sensitivity
 		mouse_pitch -= event.relative.y * sensitivity
-		mouse_pitch = clamp(mouse_pitch, -PI/3, PI/4)
+		mouse_pitch = clamp(mouse_pitch, min_pitch, max_pitch)
 
 	if event.is_action_pressed("aim"):
 		# PREVENT ADS WHILE SPRINTING
@@ -55,6 +58,7 @@ func start_aim():
 func stop_aim():
 	is_aiming_state = false
 	reset_camera()
+	snap_to_camera_goals()
 	aim_toggled.emit(false)
 
 func reset_camera() -> void:
@@ -66,10 +70,28 @@ func set_camera_goals(height: float, length: float, h_offset: float, fov: float)
 	target_h_offset = h_offset
 	target_fov = fov
 
+func snap_to_camera_goals() -> void:
+	position.y = target_height
+	spring_length = target_length
+	camera.h_offset = target_h_offset
+	camera.fov = target_fov
+
 func apply_recoil(amount: Vector2):
 	# Reduced the exponent to 1.0 or 2.0 so ADS recoil isn't too weak
-	var fov_mult = (camera.fov / 90.0) 
-	target_recoil_rot += amount * fov_mult
+	var fov_mult = 0.5 if is_aiming_state else 1.0
+	var scaled_kick = amount * fov_mult
+
+	# Keep a portion of recoil as permanent view drift so it does not fully recover.
+	var persistent_kick = scaled_kick * recoil_persistent_ratio
+	mouse_pitch = clamp(mouse_pitch + persistent_kick.x, min_pitch, max_pitch)
+	mouse_yaw += persistent_kick.y
+
+	# Remaining kick is temporary recoil that decays over time.
+	var transient_kick = scaled_kick - persistent_kick
+	var pitch_min_offset = min_pitch - mouse_pitch
+	var pitch_max_offset = max_pitch - mouse_pitch
+	target_recoil_rot.x = clamp(target_recoil_rot.x + transient_kick.x, pitch_min_offset, pitch_max_offset)
+	target_recoil_rot.y += transient_kick.y
 
 func _process(delta: float) -> void:
 	if not is_multiplayer_authority(): return
@@ -85,8 +107,10 @@ func _process(delta: float) -> void:
 	recoil_rot = lerp(recoil_rot, target_recoil_rot, delta * recoil_snap)
 
 	# 2. APPLY ROTATION
-	rotation.x = lerp_angle(rotation.x, mouse_pitch + recoil_rot.x, delta * 25.0)
+	var target_pitch = clamp(mouse_pitch + recoil_rot.x, min_pitch, max_pitch)
+	rotation.x = lerp_angle(rotation.x, target_pitch, delta * 25.0)
 	rotation.y = lerp_angle(rotation.y, mouse_yaw + recoil_rot.y, delta * 25.0)
+	
 	
 	# 3. TRANSFORMATIONS
 	position.y = lerp(position.y, target_height, delta * lerp_speed)

@@ -1,0 +1,8 @@
+[gd_scene load_steps=2 format=3 uid="uid://ltna52etv66f"]
+
+[ext_resource type="Script" uid="uid://cq80yutrolkxp" path="res://weapons/weapon_manager.gd" id="1_324ga"]
+
+[node name="WeaponManager" type="Node3D"]
+script = ExtResource("1_324ga")
+
+[node name="AudioStreamPlayer3D" type="AudioStreamPlayer3D" parent="."]

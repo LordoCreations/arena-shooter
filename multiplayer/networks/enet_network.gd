@@ -6,7 +6,7 @@ const AUTO_RETURN_SECONDS := 3.0
 var SERVER_IP = "127.0.0.1"
 
 var multiplayer_scene = preload("res://scenes/player.tscn")
-var multiplayer_peer: ENetMultiplayerPeer = ENetMultiplayerPeer.new()
+var multiplayer_peer: ENetMultiplayerPeer
 @export var _players_spawn_node: Node
 
 @onready var notifications = get_node_or_null("../../CanvasLayer/Notifications")
@@ -48,6 +48,7 @@ func _connect_multiplayer_signals() -> void:
 func become_host() -> void:
 	notifications.notify("Starting host...", false)
 
+	multiplayer_peer = ENetMultiplayerPeer.new()
 	var err := multiplayer_peer.create_server(SERVER_PORT)
 	if err != OK:
 		if err == ERR_ALREADY_IN_USE:
@@ -69,6 +70,7 @@ func become_host() -> void:
 func join_as_client(address_to_join: String) -> void:
 	notifications.notify("Attempting to join: " + address_to_join, false)
 
+	multiplayer_peer = ENetMultiplayerPeer.new()
 	SERVER_IP = address_to_join
 	var err := multiplayer_peer.create_client(SERVER_IP, SERVER_PORT)
 	if err != OK:
@@ -90,6 +92,9 @@ func _on_connection_failed() -> void:
 
 func _on_server_disconnected() -> void:
 	_join_timeout_timer.stop()
+	if multiplayer_peer and multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED:
+		multiplayer_peer.close()
+	multiplayer.multiplayer_peer = null
 	notifications.notify("Disconnected from host.", true)
 	_return_to_main_menu()
 
@@ -162,6 +167,10 @@ func _return_to_main_menu() -> void:
 	if is_instance_valid(_failure_dialog):
 		_failure_dialog.queue_free()
 		_failure_dialog = null
+
+	if multiplayer_peer and multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED:
+		multiplayer_peer.close()
+	multiplayer.multiplayer_peer = null
 
 	MultiplayerManager.pending_action = ""
 	MultiplayerManager.pending_address = ""

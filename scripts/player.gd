@@ -9,6 +9,7 @@ extends CharacterBody3D
 @export var sprint_speed: float = 12.0
 @export var acceleration: float = 30.0
 @export var friction: float = 100.0     # decel
+@export var air_resistance: float = 0.01
 @export var rotation_speed: float = 20.0
 
 # --- Direction Penaly Settings ---
@@ -66,8 +67,8 @@ var username = ""
 @export var nameplate_visible_distance: float = 20.0
 @export var damage_bar_visible_seconds: float = 4.0
 @export var damage_lag_speed: float = 1.8
-@export var enemy_damage_lag_speed: float = 1.0
-@export var enemy_damage_lag_hold_seconds: float = 0.2
+@export var enemy_damage_lag_speed: float = 1.8
+@export var enemy_damage_lag_hold_seconds: float = 0.05
 @export var hit_flash_decay_speed: float = 3.6
 @export var regen_delay_seconds: float = 6.0
 @export var regen_percent_per_second: float = 0.03
@@ -89,6 +90,13 @@ var _overhead_flash_material: StandardMaterial3D
 
 const OVERHEAD_BAR_HALF_WIDTH := 0.6
 const ENEMY_BAR_COLOR := Color(0.86, 0.18, 0.18, 1.0)
+
+
+# Visibility
+const VIEW_MODEL_LAYER = 9
+const WORLD_MODEL_LAYER = 2
+@onready var viewModel = $SpringArm3D/Camera3D/ViewModel
+@onready var worldModel = $Character/Container/orange_astro/Armature/Skeleton3D/BoneAttachment3D/WorldModel
 
 func _enter_tree() -> void:
 	set_multiplayer_authority(str(name).to_int())
@@ -212,9 +220,10 @@ func move(delta: float, allow_player_input: bool = true) -> void:
 		velocity.x = direction.x * current_speed
 		velocity.z = direction.z * current_speed
 	else:
-		current_speed = move_toward(current_speed, 0, friction * delta)
-		velocity.x = move_toward(velocity.x, 0, friction * delta)
-		velocity.z = move_toward(velocity.z, 0, friction * delta)
+		var decel = air_resistance if not is_on_floor() else friction
+		current_speed = move_toward(current_speed, 0, decel * delta)
+		velocity.x = move_toward(velocity.x, 0, decel * delta)
+		velocity.z = move_toward(velocity.z, 0, decel * delta)
 	
 	# 5. Handle Jumping
 
@@ -365,10 +374,32 @@ func shoot() -> void:
 func sync_impact(type: String, pos: Vector3, normal: Vector3, dir: Vector3):
 	ImpactManager.spawn_impact(type, pos, normal, dir)
 
+func update_view_and_world_model_masks(has_auth):
+	if has_auth:
+		for child in viewModel.find_children("*", "VisualInstance3D", true, false):
+			child.set_layer_mask_value(1, false)
+			child.set_layer_mask_value(VIEW_MODEL_LAYER, true)
+			if child is GeometryInstance3D:
+				child.cast_shadow = false
+		for child in worldModel.find_children("*", "VisualInstance3D", true, false):
+			child.set_layer_mask_value(1, false)
+			child.set_layer_mask_value(WORLD_MODEL_LAYER, true)
+		camera.set_cull_mask_value(WORLD_MODEL_LAYER, true)
+		camera.set_cull_mask_value(VIEW_MODEL_LAYER, false)
+	else:
+		viewModel.hide()
+		worldModel.show()
+
 func _on_aim_toggled(aiming: bool) -> void:
 	is_aiming = aiming
-	if aiming: visuals.hide()
-	else: visuals.show()
+	if aiming:
+		camera.set_cull_mask_value(WORLD_MODEL_LAYER, false)
+		camera.set_cull_mask_value(VIEW_MODEL_LAYER, true)
+		visuals.hide()
+	else:
+		camera.set_cull_mask_value(WORLD_MODEL_LAYER, true)
+		camera.set_cull_mask_value(VIEW_MODEL_LAYER, false)
+		visuals.show()
 
 @rpc("call_local")
 func fire_shot() -> void:
@@ -409,10 +440,13 @@ func _clear_enemy_damage_bar() -> void:
 
 func _ready():
 	if is_multiplayer_authority():
+		update_view_and_world_model_masks(true)
 		username = MultiplayerManager.player_username
 		username = username if username and len(username) > 0 else "Player " + str(player_id)
 		username_tag.text = username
 		username_tag.hide()
+	else:
+		update_view_and_world_model_masks(false)
 
 	var fill_style = health_bar.get("theme_override_styles/fill")
 	if fill_style is StyleBoxFlat:
