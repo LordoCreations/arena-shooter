@@ -1,4 +1,4 @@
-[gd_scene load_steps=54 format=4 uid="uid://snk35r3rtgsf"]
+[gd_scene load_steps=57 format=4 uid="uid://snk35r3rtgsf"]
 
 [ext_resource type="Script" uid="uid://c7qw8jpb8y373" path="res://scripts/player.gd" id="1_4flbx"]
 [ext_resource type="Script" uid="uid://ddgpytddr1n72" path="res://scripts/camera_spring_arm.gd" id="2_onrkg"]
@@ -1291,11 +1291,35 @@ corner_radius_top_right = 5
 corner_radius_bottom_right = 5
 corner_radius_bottom_left = 5
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud_lag_bg"]
+bg_color = Color(0, 0, 0, 0)
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hud_lag_fill"]
+bg_color = Color(1, 1, 1, 0.85)
+corner_radius_top_left = 5
+corner_radius_top_right = 5
+corner_radius_bottom_right = 5
+corner_radius_bottom_left = 5
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_hit_flash"]
+bg_color = Color(1, 0, 0, 0.04)
+border_width_left = 2
+border_width_top = 2
+border_width_right = 2
+border_width_bottom = 2
+border_color = Color(1, 0, 0, 0.4)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+shadow_color = Color(1, 0, 0, 0.8)
+shadow_size = 42
+
 [sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_2hs0m"]
 properties/0/path = NodePath(".:position")
 properties/0/spawn = true
 properties/0/replication_mode = 1
-properties/1/path = NodePath("Character:rotation")
+properties/1/path = NodePath(".:rotation")
 properties/1/spawn = true
 properties/1/replication_mode = 1
 properties/2/path = NodePath("EquipmentPivot:position")
@@ -1334,6 +1358,38 @@ properties/12/replication_mode = 1
 properties/13/path = NodePath("Username:text")
 properties/13/spawn = true
 properties/13/replication_mode = 1
+properties/14/path = NodePath(".:network_anim_blend")
+properties/14/spawn = true
+properties/14/replication_mode = 1
+properties/15/path = NodePath(".:network_is_sprinting")
+properties/15/spawn = true
+properties/15/replication_mode = 1
+properties/16/path = NodePath("Character:rotation")
+properties/16/spawn = true
+properties/16/replication_mode = 1
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_damage_bar_bg"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0.89411765, 0.40784314, 0.43137255, 0.5529412)
+
+[sub_resource type="QuadMesh" id="QuadMesh_damage_bar"]
+size = Vector2(1.2, 0.12)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_damage_bar_fill"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(0, 0.7172733, 0.3805772, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_damage_bar_lag"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(1, 1, 1, 0.85)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_damage_bar_flash"]
+transparency = 1
+shading_mode = 0
+albedo_color = Color(1, 0, 0, 0)
 
 [node name="Player" type="CharacterBody3D"]
 collision_layer = 2
@@ -1581,6 +1637,18 @@ theme_override_constants/margin_top = 15
 theme_override_constants/margin_right = 15
 theme_override_constants/margin_bottom = 15
 
+[node name="HealthLagBar" type="ProgressBar" parent="SpringArm3D/Camera3D/HUD/MarginContainer"]
+custom_minimum_size = Vector2(200, 20)
+layout_mode = 2
+size_flags_horizontal = 0
+size_flags_vertical = 8
+theme_override_styles/background = SubResource("StyleBoxFlat_hud_lag_bg")
+theme_override_styles/fill = SubResource("StyleBoxFlat_hud_lag_fill")
+value = 100.0
+rounded = true
+show_percentage = false
+mouse_filter = 2
+
 [node name="HealthBar" type="ProgressBar" parent="SpringArm3D/Camera3D/HUD/MarginContainer"]
 custom_minimum_size = Vector2(200, 20)
 layout_mode = 2
@@ -1592,6 +1660,23 @@ value = 100.0
 rounded = true
 show_percentage = false
 
+[node name="HitFlash" type="Panel" parent="SpringArm3D/Camera3D/HUD"]
+modulate = Color(1, 1, 1, 0)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -165.0
+offset_top = -78.0
+offset_right = 165.0
+offset_bottom = 78.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_hit_flash")
+mouse_filter = 2
+
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
 replication_config = SubResource("SceneReplicationConfig_2hs0m")
 
@@ -1600,3 +1685,24 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 2
 text = "Player
 "
+
+[node name="DamageBarRoot" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.3, 0)
+visible = false
+
+[node name="Background" type="MeshInstance3D" parent="DamageBarRoot"]
+material_override = SubResource("StandardMaterial3D_damage_bar_bg")
+mesh = SubResource("QuadMesh_damage_bar")
+
+[node name="Fill" type="MeshInstance3D" parent="DamageBarRoot"]
+material_override = SubResource("StandardMaterial3D_damage_bar_fill")
+mesh = SubResource("QuadMesh_damage_bar")
+
+[node name="DamageLag" type="MeshInstance3D" parent="DamageBarRoot"]
+material_override = SubResource("StandardMaterial3D_damage_bar_lag")
+mesh = SubResource("QuadMesh_damage_bar")
+
+[node name="HitFlash" type="MeshInstance3D" parent="DamageBarRoot"]
+transform = Transform3D(1.12, 0, 0, 0, 1.4, 0, 0, 0, 1, 0, 0, -0.001)
+material_override = SubResource("StandardMaterial3D_damage_bar_flash")
+mesh = SubResource("QuadMesh_damage_bar")

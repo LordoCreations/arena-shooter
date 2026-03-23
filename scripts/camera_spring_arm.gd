@@ -31,6 +31,7 @@ func _ready() -> void:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_multiplayer_authority(): return
+	if not MultiplayerManager.controls_enabled: return
 	
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
 		var sensitivity = mouse_sensitivity * (camera.fov / 90.0)

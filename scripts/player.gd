@@ -43,6 +43,8 @@ var health: float = max_health
 @onready var animation_tree : AnimationTree = $Character/Container/AnimationTree
 @onready var state_machine_pb : AnimationNodeStateMachinePlayback = $Character/Container/AnimationTree.get("parameters/playback")
 @export var idle_time: float = 2.0
+@export var network_anim_blend: Vector2 = Vector2.ZERO
+@export var network_is_sprinting: bool = false
 
 # --- Game ---
 @onready var spawn_loc = get_parent()
@@ -53,9 +55,40 @@ var username = ""
 
 # --- HUD ---
 @onready var hud = $SpringArm3D/Camera3D/HUD
+@onready var health_lag_bar = $SpringArm3D/Camera3D/HUD/MarginContainer/HealthLagBar
 @onready var health_bar = $SpringArm3D/Camera3D/HUD/MarginContainer/HealthBar
+@onready var hud_hit_flash = $SpringArm3D/Camera3D/HUD/HitFlash
 @onready var username_tag = $Username
+@onready var damage_bar_root = $DamageBarRoot
+@onready var damage_bar_fill = $DamageBarRoot/Fill
+@onready var damage_bar_lag = $DamageBarRoot/DamageLag
+@onready var damage_bar_flash = $DamageBarRoot/HitFlash
 @export var nameplate_visible_distance: float = 20.0
+@export var damage_bar_visible_seconds: float = 4.0
+@export var damage_lag_speed: float = 1.8
+@export var enemy_damage_lag_speed: float = 1.0
+@export var enemy_damage_lag_hold_seconds: float = 0.2
+@export var hit_flash_decay_speed: float = 3.6
+@export var regen_delay_seconds: float = 6.0
+@export var regen_percent_per_second: float = 0.03
+
+var _damage_bar_visible_until_ms: int = 0
+var _last_damage_time_ms: int = 0
+var _hud_health_ratio: float = 1.0
+var _hud_lag_ratio: float = 1.0
+var _overhead_health_ratio: float = 1.0
+var _overhead_lag_ratio: float = 1.0
+var _overhead_lag_hold_until_ms: int = 0
+var _hud_hit_flash_strength: float = 0.0
+var _overhead_hit_flash_strength: float = 0.0
+
+var _hud_fill_style: StyleBoxFlat
+var _overhead_fill_material: StandardMaterial3D
+var _overhead_lag_material: StandardMaterial3D
+var _overhead_flash_material: StandardMaterial3D
+
+const OVERHEAD_BAR_HALF_WIDTH := 0.6
+const ENEMY_BAR_COLOR := Color(0.86, 0.18, 0.18, 1.0)
 
 func _enter_tree() -> void:
 	set_multiplayer_authority(str(name).to_int())
@@ -64,13 +97,17 @@ func animate() -> void:
 	# TODO Jumping animations?
 	var rel_vel = visuals.global_transform.basis.inverse() * ((self.velocity * Vector3(1, 0, 1)) / get_move_speed())
 	var rel_vel_xz = Vector2(rel_vel.x, -rel_vel.z)
-	
-	if is_sprinting:
+	network_anim_blend = rel_vel_xz
+	network_is_sprinting = is_sprinting
+	_apply_animation_state(network_is_sprinting, network_anim_blend)
+
+func _apply_animation_state(sprinting: bool, blend: Vector2) -> void:
+	if sprinting:
 		state_machine_pb.travel("RunBlendSpace2D")
-		animation_tree.set("parameters/RunBlendSpace2D/blend_position", rel_vel_xz)
+		animation_tree.set("parameters/RunBlendSpace2D/blend_position", blend)
 	else:
 		state_machine_pb.travel("WalkBlendSpace2D")
-		animation_tree.set("parameters/WalkBlendSpace2D/blend_position", rel_vel_xz)
+		animation_tree.set("parameters/WalkBlendSpace2D/blend_position", blend)
 
 func calculate_jump_velocity() -> float:
 	var tslj = (Time.get_ticks_msec() - floor_time) / 1000.0
@@ -87,40 +124,62 @@ func calculate_jump_velocity() -> float:
 
 func _unhandled_input(_event: InputEvent) -> void:
 	if not is_multiplayer_authority(): return
+	if not MultiplayerManager.controls_enabled: return
 	if Input.is_action_just_released("shoot"):
 		firing.emit(false)
 
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
 		update_nameplate_visibility()
+		_apply_animation_state(network_is_sprinting, network_anim_blend)
 		return
-	
-	if not MultiplayerManager.controls_enabled:
-		return
+
+	var controls_enabled = MultiplayerManager.controls_enabled
 	
 	# Check sprint state before movement logic
-	is_sprinting = Input.is_action_pressed("sprint") and is_on_floor() and Input.get_vector("left", "right", "up", "down").y < 0
+	is_sprinting = controls_enabled and Input.is_action_pressed("sprint") and is_on_floor() and Input.get_vector("left", "right", "up", "down").y < 0
 	
 	# SPRINT CANCELS ADS
 	if is_sprinting and is_aiming:
 		camera_arm.stop_aim() # Force camera back to hip
+	if not controls_enabled and is_aiming:
+		camera_arm.stop_aim()
 
-	move(delta)
+	move(delta, controls_enabled)
 
-	if Input.is_action_pressed("shoot"): shoot()
+	if controls_enabled and Input.is_action_pressed("shoot"):
+		shoot()
 
 	# Gun Look-At
 	var target_pos = camera.global_transform.origin - camera.global_transform.basis.z * 100.0
 	equipment.look_at(target_pos, Vector3.UP)
 
+func _process(delta: float) -> void:
+	if is_multiplayer_authority() and health > 0.0 and health < max_health:
+		var seconds_since_damage = (Time.get_ticks_msec() - _last_damage_time_ms) / 1000.0
+		if seconds_since_damage >= regen_delay_seconds:
+			health = min(max_health, health + (max_health * regen_percent_per_second) * delta)
+			_set_local_health_ratio(health / max_health)
+
+	_hud_lag_ratio = move_toward(_hud_lag_ratio, _hud_health_ratio, damage_lag_speed * delta)
+	if Time.get_ticks_msec() >= _overhead_lag_hold_until_ms:
+		_overhead_lag_ratio = move_toward(_overhead_lag_ratio, _overhead_health_ratio, enemy_damage_lag_speed * delta)
+	_hud_hit_flash_strength = move_toward(_hud_hit_flash_strength, 0.0, hit_flash_decay_speed * delta)
+	_overhead_hit_flash_strength = move_toward(_overhead_hit_flash_strength, 0.0, hit_flash_decay_speed * delta)
+
+	_update_hud_health_visuals()
+	_update_damage_bar_visuals()
+
 func get_move_speed() -> float:
 	return sprint_speed if is_sprinting else walk_speed;
 
-func move(delta: float) -> void:
+func move(delta: float, allow_player_input: bool = true) -> void:
 	if not is_on_floor():
 		velocity += get_gravity() * 2.5 * delta
 
-	var input_dir := Input.get_vector("left", "right", "up", "down")
+	var input_dir := Vector2.ZERO
+	if allow_player_input:
+		input_dir = Input.get_vector("left", "right", "up", "down")
 	var speed_multiplier = 1.0
 	
 	# 1. Base Sprint/Walk speed
@@ -162,7 +221,7 @@ func move(delta: float) -> void:
 	if is_on_floor() and floor_time == -1:
 		floor_time = Time.get_ticks_msec()
 
-	if is_on_floor() and Input.is_action_pressed("jump"):
+	if allow_player_input and is_on_floor() and Input.is_action_pressed("jump"):
 		velocity.y = calculate_jump_velocity() 
 	
 	# Visual Rotation and Animation
@@ -180,13 +239,18 @@ func handle_visuals(delta: float) -> void:
 func update_nameplate_visibility():
 	# 1. Get the local player's camera
 	var local_player = get_viewport().get_camera_3d()
-	if not local_player: return
+	if not local_player:
+		damage_bar_root.hide()
+		return
+
+	damage_bar_root.look_at(local_player.global_position, Vector3.UP, true)
 
 	var dist = global_position.distance_to(local_player.global_position)
 
 	# 2. Check Distance
 	if dist > nameplate_visible_distance:
 		username_tag.hide()
+		damage_bar_root.hide()
 		return
 
 	# 3. Check Line of Sight (Raycast)
@@ -203,8 +267,74 @@ func update_nameplate_visibility():
 	# If the ray hits nothing, or hits THIS player, we have line of sight
 	if result.is_empty() or result.collider == self:
 		username_tag.show()
+		_update_damage_bar_visibility(true)
 	else:
 		username_tag.hide()
+		damage_bar_root.hide()
+
+func _update_damage_bar_visibility(can_see_target: bool) -> void:
+	if not can_see_target:
+		damage_bar_root.hide()
+		return
+	if Time.get_ticks_msec() > _damage_bar_visible_until_ms:
+		damage_bar_root.hide()
+		return
+	damage_bar_root.show()
+
+func _set_damage_bar_ratio(ratio: float) -> void:
+	var clamped_ratio = clamp(ratio, 0.0, 1.0)
+	if clamped_ratio < _overhead_health_ratio:
+		# Immediate health drop, white lag holds previous value then decays.
+		_overhead_lag_ratio = max(_overhead_lag_ratio, _overhead_health_ratio)
+		_overhead_lag_hold_until_ms = Time.get_ticks_msec() + int(enemy_damage_lag_hold_seconds * 1000.0)
+	_overhead_health_ratio = clamped_ratio
+
+func _set_damage_mesh_ratio(mesh: MeshInstance3D, ratio: float) -> void:
+	var clamped_ratio = clamp(ratio, 0.0, 1.0)
+	mesh.scale = Vector3(max(clamped_ratio, 0.001), 1.0, 1.0)
+	# Keep the left edge fixed as the fill shrinks.
+	mesh.position.x = -OVERHEAD_BAR_HALF_WIDTH * (1.0 - clamped_ratio)
+
+func _hud_health_color_from_ratio(ratio: float) -> Color:
+	var full_health = Color(0.0, 0.7172733, 0.3805772, 1.0)
+	var low_health = Color(0.87, 0.13, 0.13, 1.0)
+	var t = clamp(pow(1.0 - clamp(ratio, 0.0, 1.0), 0.8), 0.0, 1.0)
+	return full_health.lerp(low_health, t)
+
+func _enemy_health_color_from_ratio(_ratio: float) -> Color:
+	# Enemy health bar stays a constant red tone.
+	return ENEMY_BAR_COLOR
+
+func _update_hud_health_visuals() -> void:
+	health_bar.value = 100.0 * _hud_health_ratio
+	health_lag_bar.value = 100.0 * _hud_lag_ratio
+	if _hud_fill_style:
+		_hud_fill_style.bg_color = _hud_health_color_from_ratio(_hud_health_ratio)
+
+	var bar_rect = health_bar.get_global_rect()
+	var hud_rect = hud.get_global_rect()
+	hud_hit_flash.position = bar_rect.position - hud_rect.position
+	hud_hit_flash.size = bar_rect.size
+	hud_hit_flash.modulate.a = 0.8 * _hud_hit_flash_strength
+
+func _update_damage_bar_visuals() -> void:
+	_set_damage_mesh_ratio(damage_bar_fill, _overhead_health_ratio)
+	_set_damage_mesh_ratio(damage_bar_lag, _overhead_lag_ratio)
+	if _overhead_fill_material:
+		_overhead_fill_material.albedo_color = _enemy_health_color_from_ratio(_overhead_health_ratio)
+	if _overhead_lag_material:
+		var lag_gap = max(0.0, _overhead_lag_ratio - _overhead_health_ratio)
+		var lag_alpha = clamp(lag_gap * 4.0, 0.0, 0.85)
+		var lag_color = Color(1.0, 1.0, 1.0, lag_alpha)
+		_overhead_lag_material.albedo_color = lag_color
+	if _overhead_flash_material:
+		_overhead_flash_material.albedo_color.a = 0.0
+
+func _set_local_health_ratio(ratio: float) -> void:
+	var clamped_ratio = clamp(ratio, 0.0, 1.0)
+	if clamped_ratio < _hud_health_ratio:
+		_hud_lag_ratio = max(_hud_lag_ratio, _hud_health_ratio)
+	_hud_health_ratio = clamped_ratio
 
 func shoot() -> void:
 	if not active_gun.try_shoot(): return
@@ -246,12 +376,35 @@ func fire_shot() -> void:
 
 @rpc("any_peer")
 func hurt(damage: float):
+	var attacker_peer_id = multiplayer.get_remote_sender_id()
+	var prev_health = health
 	health -= damage
-	health_bar.value = 100 * (health / max_health)
+	health = clamp(health, 0.0, max_health)
+	_last_damage_time_ms = Time.get_ticks_msec()
+	_set_local_health_ratio(health / max_health)
+	if health < (max_health * 0.5) and health < prev_health:
+		_hud_hit_flash_strength = 1.0
+	if attacker_peer_id > 0 and attacker_peer_id != multiplayer.get_unique_id():
+		_show_damage_to_attacker.rpc_id(attacker_peer_id, health / max_health)
 
 	if health <= 0:
 		hide()
 		spawn()
+
+@rpc("authority", "call_remote")
+func _show_damage_to_attacker(health_ratio: float) -> void:
+	_damage_bar_visible_until_ms = Time.get_ticks_msec() + int(damage_bar_visible_seconds * 1000.0)
+	_set_damage_bar_ratio(health_ratio)
+	damage_bar_root.show()
+
+@rpc("authority", "call_remote")
+func _clear_enemy_damage_bar() -> void:
+	_damage_bar_visible_until_ms = 0
+	_overhead_health_ratio = 1.0
+	_overhead_lag_ratio = 1.0
+	_overhead_lag_hold_until_ms = 0
+	_overhead_hit_flash_strength = 0.0
+	damage_bar_root.hide()
 	
 
 func _ready():
@@ -261,9 +414,33 @@ func _ready():
 		username_tag.text = username
 		username_tag.hide()
 
+	var fill_style = health_bar.get("theme_override_styles/fill")
+	if fill_style is StyleBoxFlat:
+		_hud_fill_style = fill_style.duplicate()
+		health_bar.add_theme_stylebox_override("fill", _hud_fill_style)
+
+	var fill_material = damage_bar_fill.material_override
+	if fill_material is StandardMaterial3D:
+		_overhead_fill_material = fill_material.duplicate()
+		damage_bar_fill.material_override = _overhead_fill_material
+
+	var lag_material = damage_bar_lag.material_override
+	if lag_material is StandardMaterial3D:
+		_overhead_lag_material = lag_material.duplicate()
+		damage_bar_lag.material_override = _overhead_lag_material
+
+	# Prevent z-fighting so white lag remains visible against the red fill mesh.
+	damage_bar_lag.position.z = -0.002
+
+	var flash_material = damage_bar_flash.material_override
+	if flash_material is StandardMaterial3D:
+		_overhead_flash_material = flash_material.duplicate()
+		damage_bar_flash.material_override = _overhead_flash_material
+
 
 	if not is_multiplayer_authority():
 		username_tag.show()
+		damage_bar_root.hide()
 		show()
 		return
 	
@@ -279,6 +456,18 @@ func _ready():
 
 func spawn() -> void:
 	health = max_health
+	_last_damage_time_ms = Time.get_ticks_msec()
 	show()
 	position = MultiplayerManager.respawn_point
-	health_bar.value = 100 * (health / max_health)
+	_set_local_health_ratio(health / max_health)
+	_hud_lag_ratio = _hud_health_ratio
+	_damage_bar_visible_until_ms = 0
+	_overhead_health_ratio = 1.0
+	_overhead_lag_ratio = 1.0
+	_overhead_lag_hold_until_ms = 0
+	_overhead_hit_flash_strength = 0.0
+	_hud_hit_flash_strength = 0.0
+	_set_damage_bar_ratio(1.0)
+	damage_bar_root.hide()
+	if is_multiplayer_authority():
+		_clear_enemy_damage_bar.rpc()

@@ -34,27 +34,31 @@ text = "Arena Shooter (alpha)"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="HostButton" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
+[node name="Username" type="LineEdit" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
-text = "Host LAN"
-
-[node name="JoinButton" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
-layout_mode = 2
-text = "Join LAN"
+placeholder_text = "Enter your Username"
+alignment = 1
 
 [node name="Address" type="LineEdit" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
 placeholder_text = "Enter Local Address"
 alignment = 1
 
+[node name="JoinButton" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Join LAN"
+
+[node name="HostButton" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
+layout_mode = 2
+text = "Host LAN"
+
 [node name="JoinSteam" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
 text = "Use Steam"
 
-[node name="Username" type="LineEdit" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
+[node name="QuitGame" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
-placeholder_text = "Enter your Username"
-alignment = 1
+text = "Quit Game"
 
 [node name="SteamHUD" type="PanelContainer" parent="CanvasLayer"]
 visible = false
@@ -98,8 +102,9 @@ layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/HostButton" to="." method="_on_host_button_pressed"]
 [connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/JoinButton" to="." method="_on_join_button_pressed"]
+[connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/HostButton" to="." method="_on_host_button_pressed"]
 [connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/JoinSteam" to="." method="_on_join_steam_pressed"]
+[connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/QuitGame" to="." method="_on_quit_game_pressed"]
 [connection signal="pressed" from="CanvasLayer/SteamHUD/MarginContainer/Options/HostP2PGame" to="." method="_on_host_p_2p_game_pressed"]
 [connection signal="pressed" from="CanvasLayer/SteamHUD/MarginContainer/Options/ListLobbies" to="." method="_on_list_lobbies_pressed"]

@@ -110,3 +110,6 @@ func _show_steam_error_dialog() -> void:
 func _on_steam_error_dismissed() -> void:
 	main_menu.show()
 	steam_menu.hide()
+
+func _on_quit_game_pressed() -> void:
+	get_tree().quit()
