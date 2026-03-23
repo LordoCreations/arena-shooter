@@ -20,7 +20,6 @@ config/icon="res://icon.svg"
 ImpactManager="*res://scripts/ImpactManager.gd"
 SteamManager="*res://multiplayer/steam_manager.gd"
 MultiplayerManager="*res://multiplayer/multiplayer_manager.gd"
-UIScaler="*res://scripts/ui_scaler.gd"
 
 [display]
 
