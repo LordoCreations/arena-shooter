@@ -24,7 +24,11 @@ var weapon_manager : WeaponManager
 @export var view_reload_anim : String
 
 # Weapon Stats
-@export var damage = 10;
+@export var damage: float = 10.0
+@export var fire_rate_time: float = 0.2
+@export var recoil_power: Vector2 = Vector2(0.5, 0.05)
+@export var muzzle_flash_scene: PackedScene = preload("res://weapons/vfx/muzzle_flash.tscn")
+@export var muzzle_flash_position: Vector3 = Vector3.ZERO
 
 # Weapon Sounds
 @export var shoot_sound : AudioStream
@@ -51,7 +55,7 @@ var is_equipped := false :
 				on_unequip()
 
 func on_trigger_down():
-	fire_shot()
+	pass
 
 
 func on_trigger_up():

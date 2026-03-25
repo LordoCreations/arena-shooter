@@ -1,11 +1,10 @@
-[gd_scene load_steps=64 format=4 uid="uid://snk35r3rtgsf"]
+[gd_scene load_steps=63 format=4 uid="uid://snk35r3rtgsf"]
 
 [ext_resource type="Script" uid="uid://c7qw8jpb8y373" path="res://scripts/player.gd" id="1_4flbx"]
 [ext_resource type="Script" uid="uid://ddgpytddr1n72" path="res://scripts/camera_spring_arm.gd" id="2_onrkg"]
 [ext_resource type="Script" uid="uid://7ujj0fhdpae3" path="res://scripts/hand.gd" id="3_sweqy"]
 [ext_resource type="PackedScene" uid="uid://ltna52etv66f" path="res://weapons/weapon_manager.tscn" id="3_ur7pv"]
 [ext_resource type="Resource" uid="uid://danie5kuoen4g" path="res://weapons/pistol/pistol.tres" id="3_y4r1p"]
-[ext_resource type="PackedScene" uid="uid://brict2iq6v5fl" path="res://scenes/gun.tscn" id="4_hqtel"]
 [ext_resource type="Texture2D" uid="uid://twxdi5n3xqbx" path="res://assets/orange_astro_Image_0.jpg" id="4_smehm"]
 [ext_resource type="Texture2D" uid="uid://n25cv7h8qjql" path="res://assets/orange_astro_Image_1.jpg" id="5_ur7pv"]
 [ext_resource type="Texture2D" uid="uid://c05qh70wfopxn" path="res://assets/orange_astro_Image_2.jpg" id="6_y4r1p"]
@@ -1336,10 +1335,10 @@ properties/4/replication_mode = 1
 properties/5/path = NodePath("EquipmentPivot/Hand:rotation")
 properties/5/spawn = true
 properties/5/replication_mode = 1
-properties/6/path = NodePath("EquipmentPivot/Hand/Gun:position")
+properties/6/path = NodePath("EquipmentPivot/Hand/MuzzleFlashAnchor:position")
 properties/6/spawn = true
 properties/6/replication_mode = 1
-properties/7/path = NodePath("EquipmentPivot/Hand/Gun:rotation")
+properties/7/path = NodePath("EquipmentPivot/Hand/MuzzleFlashAnchor:rotation")
 properties/7/spawn = true
 properties/7/replication_mode = 1
 properties/8/path = NodePath("SpringArm3D:position")
@@ -1408,8 +1407,8 @@ script = ExtResource("3_sweqy")
 unique_name_in_owner = true
 transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 0, 0, 0)
 
-[node name="Gun" parent="EquipmentPivot/Hand" instance=ExtResource("4_hqtel")]
-visible = false
+[node name="MuzzleFlashAnchor" type="Node3D" parent="EquipmentPivot/Hand"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.122, -0.6629)
 
 [node name="BulletRayCast" type="RayCast3D" parent="EquipmentPivot/Hand"]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.122, 0)

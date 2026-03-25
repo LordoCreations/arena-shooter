@@ -25,20 +25,18 @@ var is_aiming: bool = false
 @export var min_jump_percent: float = 0.8    # Minimum jump height
 
 var floor_time: int = 0
-var last_active_time: int = 0
 var current_speed: float = 0.0
 
 # --- Equipment ---
 @onready var weapon_manager := $WeaponManager
 @onready var equipment := $EquipmentPivot
-@onready var active_gun = $EquipmentPivot/Hand/Gun
 
 signal firing(is_firing: bool)
 
 @export var ads_speed_mult: float = 0.6 # 60% speed while aiming
 
 # --- Health ---
-@export var max_health: float = 3.0
+@export var max_health: float = 100.0
 var health: float = max_health
 
 # --- Animations ---
@@ -131,10 +129,16 @@ func calculate_jump_velocity() -> float:
 	
 	return (base_jump_velocity + speed_factor) * fatigue_factor
 
-func _unhandled_input(_event: InputEvent) -> void:
+func _unhandled_input(event: InputEvent) -> void:
 	if not is_multiplayer_authority(): return
-	if not MultiplayerManager.controls_enabled: return
-	if Input.is_action_just_released("shoot"):
+	if not MultiplayerManager.controls_enabled:
+		weapon_manager.set_trigger_pressed(false)
+		return
+
+	if event.is_action_pressed("shoot"):
+		weapon_manager.set_trigger_pressed(true)
+	elif event.is_action_released("shoot"):
+		weapon_manager.set_trigger_pressed(false)
 		firing.emit(false)
 
 func _physics_process(delta: float) -> void:
@@ -153,11 +157,10 @@ func _physics_process(delta: float) -> void:
 		camera_arm.stop_aim() # Force camera back to hip
 	if not controls_enabled and is_aiming:
 		camera_arm.stop_aim()
+	if not controls_enabled:
+		weapon_manager.set_trigger_pressed(false)
 
 	move(delta, controls_enabled)
-
-	if controls_enabled and Input.is_action_pressed("shoot"):
-		shoot()
 
 	# Gun Look-At
 	var target_pos = camera.global_transform.origin - camera.global_transform.basis.z * 100.0
@@ -348,35 +351,6 @@ func _set_local_health_ratio(ratio: float) -> void:
 		_hud_lag_ratio = max(_hud_lag_ratio, _hud_health_ratio)
 	_hud_health_ratio = clamped_ratio
 
-func shoot() -> void:
-	if not active_gun.try_shoot(): return
-	
-	var kick = Vector2(active_gun.recoil_power.x, randf_range(-active_gun.recoil_power.y, active_gun.recoil_power.y))
-	camera_arm.apply_recoil(kick)
-	
-	fire_shot.rpc()
-	active_gun.play_fire_effects.rpc()
-	firing.emit(true)
-	
-	var bullet_cast = active_gun.bullet_cast
-	if bullet_cast.is_colliding():
-		var hit_obj = bullet_cast.get_collider()
-		var col_point = bullet_cast.get_collision_point()
-		var normal = bullet_cast.get_collision_normal()
-		
-		var bullet_dir = (col_point - bullet_cast.global_position).normalized()
-	
-		if hit_obj.has_method("hurt"):
-			hit_obj.hurt.rpc_id(hit_obj.get_multiplayer_authority(), 1.0)
-			rpc("sync_impact", "enemy", col_point, normal, bullet_dir)
-		else:
-			rpc("sync_impact", "terrain", col_point, normal, bullet_dir)
-			rpc("sync_impact", "decal", col_point, normal, bullet_dir)
-
-@rpc("any_peer", "call_local")
-func sync_impact(type: String, pos: Vector3, normal: Vector3, dir: Vector3):
-	ImpactManager.spawn_impact(type, pos, normal, dir)
-
 func update_view_and_world_model_masks():
 	if is_multiplayer_authority():
 		for child in %ViewModel.find_children("*", "VisualInstance3D", true, false):
@@ -403,11 +377,6 @@ func _on_aim_toggled(aiming: bool) -> void:
 		camera.set_cull_mask_value(WORLD_MODEL_LAYER, true)
 		camera.set_cull_mask_value(VIEW_MODEL_LAYER, false)
 		visuals.show()
-
-@rpc("call_local")
-func fire_shot() -> void:
-	last_active_time = Time.get_ticks_msec()
-
 @rpc("any_peer")
 func hurt(damage: float):
 	var attacker_peer_id = multiplayer.get_remote_sender_id()

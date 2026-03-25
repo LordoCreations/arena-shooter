@@ -4,6 +4,7 @@ const SERVER_PORT = 9999
 const JOIN_TIMEOUT_SECONDS := 3.0
 const AUTO_RETURN_SECONDS := 3.0
 var SERVER_IP = "127.0.0.1"
+var popup_template_scene := preload("res://scenes/ui/menu_popup_template.tscn")
 
 var multiplayer_scene = preload("res://scenes/player.tscn")
 var multiplayer_peer: ENetMultiplayerPeer
@@ -15,7 +16,7 @@ var multiplayer_peer: ENetMultiplayerPeer
 @onready var _failure_countdown_timer: Timer = Timer.new()
 
 var _showing_failure_popup: bool = false
-var _failure_dialog: AcceptDialog
+var _failure_dialog
 var _failure_message_base: String = ""
 var _failure_seconds_remaining: int = 0
 
@@ -118,20 +119,30 @@ func _show_failure_popup_and_return(title: String, message: String, auto_return_
 	_failure_auto_return_timer.stop()
 	_failure_countdown_timer.stop()
 
-	_failure_dialog = AcceptDialog.new()
-	_failure_dialog.title = title
-	_failure_dialog.dialog_text = message
-	_failure_dialog.get_ok_button().text = "Return to Menu"
-	_failure_dialog.connect("confirmed", Callable(self, "_on_failure_popup_confirmed"))
-	add_child(_failure_dialog)
-	_failure_dialog.popup_centered_ratio(0.6)
+	_failure_dialog = _ensure_failure_popup()
+	_failure_dialog.open_popup(title, message, "Return to Menu")
 
 	if auto_return_seconds > 0.0:
 		_failure_message_base = message
 		_failure_seconds_remaining = int(ceil(auto_return_seconds))
-		_failure_dialog.dialog_text = "%s\n\nReturning to main menu in %ss..." % [_failure_message_base, _failure_seconds_remaining]
+		_failure_dialog.set_message_text("%s\n\nReturning to main menu in %ss..." % [_failure_message_base, _failure_seconds_remaining])
 		_failure_auto_return_timer.start(auto_return_seconds)
 		_failure_countdown_timer.start()
+
+func _ensure_failure_popup():
+	if is_instance_valid(_failure_dialog):
+		return _failure_dialog
+
+	_failure_dialog = popup_template_scene.instantiate()
+	var popup_parent = get_tree().current_scene.get_node_or_null("CanvasLayer")
+	if popup_parent:
+		popup_parent.add_child(_failure_dialog)
+	else:
+		add_child(_failure_dialog)
+
+	if not _failure_dialog.confirmed.is_connected(Callable(self, "_on_failure_popup_confirmed")):
+		_failure_dialog.confirmed.connect(Callable(self, "_on_failure_popup_confirmed"))
+	return _failure_dialog
 
 func _on_failure_countdown_tick() -> void:
 	if not _showing_failure_popup:
@@ -144,7 +155,7 @@ func _on_failure_countdown_tick() -> void:
 		return
 
 	if is_instance_valid(_failure_dialog):
-		_failure_dialog.dialog_text = "%s\n\nReturning to main menu in %ss..." % [_failure_message_base, _failure_seconds_remaining]
+		_failure_dialog.set_message_text("%s\n\nReturning to main menu in %ss..." % [_failure_message_base, _failure_seconds_remaining])
 
 func _on_failure_popup_confirmed() -> void:
 	_showing_failure_popup = false
