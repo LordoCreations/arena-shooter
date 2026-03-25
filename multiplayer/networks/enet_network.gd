@@ -96,7 +96,7 @@ func _on_server_disconnected() -> void:
 	if multiplayer_peer and multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED:
 		multiplayer_peer.close()
 	multiplayer.multiplayer_peer = null
-	notifications.notify("Disconnected from host.", true)
+	notifications.notify("Host closed the lobby. You were kicked.", true)
 	_return_to_main_menu()
 
 func _on_join_timeout() -> void:
@@ -171,17 +171,7 @@ func _on_failure_popup_auto_return() -> void:
 	_return_to_main_menu()
 
 func _return_to_main_menu() -> void:
-	_join_timeout_timer.stop()
-	_failure_auto_return_timer.stop()
-	_failure_countdown_timer.stop()
-
-	if is_instance_valid(_failure_dialog):
-		_failure_dialog.queue_free()
-		_failure_dialog = null
-
-	if multiplayer_peer and multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED:
-		multiplayer_peer.close()
-	multiplayer.multiplayer_peer = null
+	shutdown_lobby(false)
 
 	MultiplayerManager.pending_action = ""
 	MultiplayerManager.pending_address = ""
@@ -191,6 +181,20 @@ func _return_to_main_menu() -> void:
 	MultiplayerManager.controls_enabled = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+
+func shutdown_lobby(_host_shutdown: bool = false) -> void:
+	_join_timeout_timer.stop()
+	_failure_auto_return_timer.stop()
+	_failure_countdown_timer.stop()
+	_showing_failure_popup = false
+
+	if is_instance_valid(_failure_dialog):
+		_failure_dialog.queue_free()
+		_failure_dialog = null
+
+	if multiplayer_peer and multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED:
+		multiplayer_peer.close()
+	multiplayer.multiplayer_peer = null
 
 func _add_player_to_game(id: int) -> void:
 	if _players_spawn_node.has_node(str(id)):

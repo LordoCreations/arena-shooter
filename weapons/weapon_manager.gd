@@ -20,7 +20,7 @@ var current_world_model : Node3D
 @export var allow_shoot := true
 
 # Audio
-@onready var audio_stream_player := $AudioStreamPlayer3D;
+@onready var audio_stream_player := $AudioStreamPlayer3D
 
 func update_weapon_model() -> void:
 	if current_weapon != null:
@@ -50,7 +50,7 @@ func update_weapon_model() -> void:
 		player.update_view_and_world_model_masks()
 
 func play_anim(anim_id : String) -> void:
-	if not current_view_model:
+	if not current_view_model or not is_instance_valid(current_view_model):
 		return
 	var anim_player : AnimationPlayer = current_view_model.get_node_or_null("AnimationPlayer")
 	if not anim_player or not anim_player.has_animation(anim_id):
@@ -60,7 +60,7 @@ func play_anim(anim_id : String) -> void:
 	anim_player.play(anim_id)
 
 func queue_anim(anim_id : String):
-	if not current_view_model:
+	if not current_view_model or not is_instance_valid(current_view_model):
 		return
 	var anim_player : AnimationPlayer = current_view_model.get_node_or_null("AnimationPlayer")
 	if not anim_player: return
@@ -70,7 +70,7 @@ func play_sound(sound : AudioStream):
 	_play_sound_internal(sound, 0.0)
 
 func _play_sound_internal(sound: AudioStream, volume_db: float) -> void:
-	if not sound:
+	if not sound or not audio_stream_player or not is_instance_valid(audio_stream_player):
 		return
 	if audio_stream_player.stream != sound:
 		audio_stream_player.stream = sound
@@ -106,12 +106,16 @@ func play_remote_shot_sound() -> void:
 		return
 
 	var volume_db := 0.0
-	if _is_sound_occluded_from_listener(audio_stream_player.global_position):
+	var sound_origin := global_position
+	if audio_stream_player and is_instance_valid(audio_stream_player):
+		sound_origin = audio_stream_player.global_position
+	if _is_sound_occluded_from_listener(sound_origin):
 		volume_db += occluded_shot_volume_reduction_db
 	_play_sound_internal(current_weapon.shoot_sound, volume_db)
 
 func stop_sounds():
-	audio_stream_player.stop()
+	if audio_stream_player and is_instance_valid(audio_stream_player):
+		audio_stream_player.stop()
 
 func set_trigger_pressed(pressed: bool) -> void:
 	if not current_weapon:
@@ -119,6 +123,8 @@ func set_trigger_pressed(pressed: bool) -> void:
 	current_weapon.trigger_down = pressed and allow_shoot
 
 func _physics_process(_delta: float) -> void:
+	if not player or not is_instance_valid(player):
+		return
 	if not player.is_multiplayer_authority():
 		return
 	if not current_weapon or not allow_shoot:
@@ -196,3 +202,10 @@ func _ready() -> void:
 		fire_rate_timer.wait_time = max(current_weapon.fire_rate_time, 0.01)
 		if muzzle_flash_anchor:
 			muzzle_flash_anchor.position = current_weapon.muzzle_flash_position
+
+func _exit_tree() -> void:
+	if current_weapon:
+		current_weapon.trigger_down = false
+		if current_weapon.weapon_manager == self:
+			current_weapon.weapon_manager = null
+	stop_sounds()

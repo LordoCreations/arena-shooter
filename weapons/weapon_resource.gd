@@ -54,6 +54,9 @@ var is_equipped := false :
 			else:
 				on_unequip()
 
+func _manager_ready() -> bool:
+	return weapon_manager != null and is_instance_valid(weapon_manager)
+
 func on_trigger_down():
 	pass
 
@@ -62,6 +65,8 @@ func on_trigger_up():
 	pass
 
 func on_equip():
+	if not _manager_ready():
+		return
 	weapon_manager.play_anim(view_equip_anim)
 	weapon_manager.queue_anim(view_idle_anim)
 
@@ -70,6 +75,8 @@ func on_unequip():
 	pass
 
 func fire_shot():
+	if not _manager_ready():
+		return
 	weapon_manager.play_anim(view_shoot_anim)
 	weapon_manager.play_sound(shoot_sound)
 	weapon_manager.queue_anim(view_idle_anim)

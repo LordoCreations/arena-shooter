@@ -112,7 +112,7 @@ func _on_server_disconnected() -> void:
 	if multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED:
 		multiplayer_peer.close()
 	multiplayer.multiplayer_peer = null
-	notifications.notify("Disconnected from host.", true)
+	notifications.notify("Host closed the lobby. You were kicked.", true)
 	_return_to_main_menu()
 
 func _on_join_timeout() -> void:
@@ -187,18 +187,7 @@ func _on_failure_popup_auto_return() -> void:
 	_return_to_main_menu()
 
 func _return_to_main_menu() -> void:
-	_join_timeout_timer.stop()
-	_failure_auto_return_timer.stop()
-	_failure_countdown_timer.stop()
-
-	if is_instance_valid(_failure_dialog):
-		_failure_dialog.queue_free()
-		_failure_dialog = null
-
-	if multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED:
-		multiplayer_peer.close()
-	multiplayer.multiplayer_peer = null
-	multiplayer_peer = SteamMultiplayerPeer.new()
+	shutdown_lobby(false)
 
 	MultiplayerManager.pending_action = ""
 	MultiplayerManager.pending_address = ""
@@ -207,11 +196,36 @@ func _return_to_main_menu() -> void:
 	MultiplayerManager.host_mode_enabled = false
 	MultiplayerManager.controls_enabled = true
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-	if _current_lobby_id != 0 and Steam.has_method("leaveLobby"):
-		Steam.leaveLobby(_current_lobby_id)
 	_current_lobby_id = 0
 	_hosted_lobby_id = 0
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
+
+func shutdown_lobby(_host_shutdown: bool = false) -> void:
+	_join_timeout_timer.stop()
+	_failure_auto_return_timer.stop()
+	_failure_countdown_timer.stop()
+	_showing_failure_popup = false
+
+	if is_instance_valid(_failure_dialog):
+		_failure_dialog.queue_free()
+		_failure_dialog = null
+
+	if _host_shutdown and is_host():
+		if _current_lobby_id != 0 and Steam.has_method("setLobbyJoinable"):
+			Steam.setLobbyJoinable(_current_lobby_id, false)
+		for peer_id in multiplayer.get_peers():
+			multiplayer_peer.disconnect_peer(peer_id)
+
+	if multiplayer_peer.get_connection_status() != MultiplayerPeer.CONNECTION_DISCONNECTED:
+		multiplayer_peer.close()
+	multiplayer.multiplayer_peer = null
+	multiplayer_peer = SteamMultiplayerPeer.new()
+
+	if _current_lobby_id != 0 and Steam.has_method("leaveLobby"):
+		Steam.leaveLobby(_current_lobby_id)
+
+	_current_lobby_id = 0
+	_hosted_lobby_id = 0
 
 func list_lobbies() -> void:
 	notifications.notify("Requesting lobby list...", false)
