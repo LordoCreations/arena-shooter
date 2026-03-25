@@ -29,6 +29,7 @@ var last_active_time: int = 0
 var current_speed: float = 0.0
 
 # --- Equipment ---
+@onready var weapon_manager := $WeaponManager
 @onready var equipment := $EquipmentPivot
 @onready var active_gun = $EquipmentPivot/Hand/Gun
 
@@ -214,16 +215,18 @@ func move(delta: float, allow_player_input: bool = true) -> void:
 	right.y = 0
 	var direction = (forward * input_dir.y + right * input_dir.x).normalized()
 
-	# Smoothed movement (Lerp Velocity)
+	# Smoothly accelerate the horizontal velocity vector to avoid instant direction snaps.
+	var horizontal_velocity = Vector2(velocity.x, velocity.z)
 	if direction:
-		current_speed = move_toward(current_speed, target_speed, acceleration * delta)
-		velocity.x = direction.x * current_speed
-		velocity.z = direction.z * current_speed
+		var target_horizontal_velocity = Vector2(direction.x, direction.z) * target_speed
+		horizontal_velocity = horizontal_velocity.move_toward(target_horizontal_velocity, acceleration * delta)
 	else:
 		var decel = air_resistance if not is_on_floor() else friction
-		current_speed = move_toward(current_speed, 0, decel * delta)
-		velocity.x = move_toward(velocity.x, 0, decel * delta)
-		velocity.z = move_toward(velocity.z, 0, decel * delta)
+		horizontal_velocity = horizontal_velocity.move_toward(Vector2.ZERO, decel * delta)
+
+	velocity.x = horizontal_velocity.x
+	velocity.z = horizontal_velocity.y
+	current_speed = horizontal_velocity.length()
 	
 	# 5. Handle Jumping
 
@@ -374,21 +377,21 @@ func shoot() -> void:
 func sync_impact(type: String, pos: Vector3, normal: Vector3, dir: Vector3):
 	ImpactManager.spawn_impact(type, pos, normal, dir)
 
-func update_view_and_world_model_masks(has_auth):
-	if has_auth:
-		for child in viewModel.find_children("*", "VisualInstance3D", true, false):
+func update_view_and_world_model_masks():
+	if is_multiplayer_authority():
+		for child in %ViewModel.find_children("*", "VisualInstance3D", true, false):
 			child.set_layer_mask_value(1, false)
 			child.set_layer_mask_value(VIEW_MODEL_LAYER, true)
 			if child is GeometryInstance3D:
 				child.cast_shadow = false
-		for child in worldModel.find_children("*", "VisualInstance3D", true, false):
+		for child in %WorldModel.find_children("*", "VisualInstance3D", true, false):
 			child.set_layer_mask_value(1, false)
 			child.set_layer_mask_value(WORLD_MODEL_LAYER, true)
 		camera.set_cull_mask_value(WORLD_MODEL_LAYER, true)
 		camera.set_cull_mask_value(VIEW_MODEL_LAYER, false)
 	else:
-		viewModel.hide()
-		worldModel.show()
+		%ViewModel.hide()
+		%WorldModel.show()
 
 func _on_aim_toggled(aiming: bool) -> void:
 	is_aiming = aiming
@@ -439,14 +442,15 @@ func _clear_enemy_damage_bar() -> void:
 	
 
 func _ready():
+	update_view_and_world_model_masks()
+	weapon_manager.update_weapon_model()
+
+
 	if is_multiplayer_authority():
-		update_view_and_world_model_masks(true)
 		username = MultiplayerManager.player_username
 		username = username if username and len(username) > 0 else "Player " + str(player_id)
 		username_tag.text = username
 		username_tag.hide()
-	else:
-		update_view_and_world_model_masks(false)
 
 	var fill_style = health_bar.get("theme_override_styles/fill")
 	if fill_style is StyleBoxFlat:

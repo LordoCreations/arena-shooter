@@ -1397,12 +1397,6 @@ albedo_color = Color(1, 0, 0, 0)
 collision_layer = 2
 script = ExtResource("1_4flbx")
 
-[node name="WeaponManager" parent="." node_paths=PackedStringArray("view_model_container", "world_model_container") instance=ExtResource("3_ur7pv")]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 1, -0.6)
-current_weapon = ExtResource("3_y4r1p")
-view_model_container = NodePath("../SpringArm3D/Camera3D/ViewModel")
-world_model_container = NodePath("../Character/Container/orange_astro/Armature/Skeleton3D/BoneAttachment3D")
-
 [node name="EquipmentPivot" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 
@@ -1410,8 +1404,17 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 0, -0.6)
 script = ExtResource("3_sweqy")
 
+[node name="ViewModel" type="Node3D" parent="EquipmentPivot/Hand"]
+unique_name_in_owner = true
+transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 0, 0, 0)
+
 [node name="Gun" parent="EquipmentPivot/Hand" instance=ExtResource("4_hqtel")]
 visible = false
+
+[node name="GunRayCast" type="RayCast3D" parent="EquipmentPivot/Hand"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.122, 0)
+target_position = Vector3(0, 0, -999)
+collision_mask = 3
 
 [node name="CollisionShape3D" type="CollisionShape3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.05, 0)
@@ -1557,6 +1560,7 @@ bone_name = "LowerArm.R_leaf"
 bone_idx = 12
 
 [node name="WorldModel" type="Node3D" parent="Character/Container/orange_astro/Armature/Skeleton3D/BoneAttachment3D"]
+unique_name_in_owner = true
 
 [node name="AnimationPlayer" type="AnimationPlayer" parent="Character/Container/orange_astro"]
 libraries = {
@@ -1579,11 +1583,8 @@ script = ExtResource("2_onrkg")
 [node name="Camera3D" type="Camera3D" parent="SpringArm3D"]
 cull_mask = 1048573
 
-[node name="ViewModel" type="Node3D" parent="SpringArm3D/Camera3D"]
-transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 0, 0, 0)
-
 [node name="Convergence" type="RayCast3D" parent="SpringArm3D/Camera3D"]
-target_position = Vector3(0, 0, -50)
+target_position = Vector3(0, 0, -999)
 collision_mask = 3
 
 [node name="Crosshair" type="Control" parent="SpringArm3D/Camera3D"]
@@ -1726,3 +1727,9 @@ mesh = SubResource("QuadMesh_damage_bar")
 transform = Transform3D(1.12, 0, 0, 0, 1.4, 0, 0, 0, 1, 0, 0, -0.001)
 material_override = SubResource("StandardMaterial3D_damage_bar_flash")
 mesh = SubResource("QuadMesh_damage_bar")
+
+[node name="WeaponManager" parent="." node_paths=PackedStringArray("view_model_container", "world_model_container") instance=ExtResource("3_ur7pv")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 1, -0.6)
+current_weapon = ExtResource("3_y4r1p")
+view_model_container = NodePath("../EquipmentPivot/Hand/ViewModel")
+world_model_container = NodePath("../Character/Container/orange_astro/Armature/Skeleton3D/BoneAttachment3D")
