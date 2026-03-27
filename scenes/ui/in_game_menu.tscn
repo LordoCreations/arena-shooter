@@ -1,4 +1,4 @@
-[gd_scene format=3]
+[gd_scene format=3 uid="uid://b02l3a7ceuakh"]
 
 [node name="InGameMenu" type="Control"]
 layout_mode = 3
@@ -10,7 +10,6 @@ grow_vertical = 2
 mouse_filter = 2
 
 [node name="PauseMenu" type="PanelContainer" parent="."]
-visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -57,15 +56,13 @@ text = "Volume"
 [node name="VolumeSlider" type="HSlider" parent="PauseMenu/MarginContainer/VBoxContainer/VolumeRow"]
 layout_mode = 2
 size_flags_horizontal = 3
-min_value = 0.0
-max_value = 100.0
-step = 1.0
+size_flags_vertical = 4
 value = 100.0
 
 [node name="VolumeValue" type="Label" parent="PauseMenu/MarginContainer/VBoxContainer/VolumeRow"]
+custom_minimum_size = Vector2(70, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
-custom_minimum_size = Vector2(70, 0)
 text = "100%"
 horizontal_alignment = 2
 
