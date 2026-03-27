@@ -41,6 +41,7 @@ var weapon_manager : WeaponManager
 
 # Weapon Logic
 var is_reloading := false
+var _reload_start_time_ms := 0
 var _reload_end_time_ms := 0
 
 var trigger_down := false :
@@ -80,6 +81,7 @@ func on_equip():
 
 func on_unequip():
 	is_reloading = false
+	_reload_start_time_ms = 0
 	_reload_end_time_ms = 0
 
 func on_process(_delta: float) -> void:
@@ -89,6 +91,7 @@ func on_process(_delta: float) -> void:
 		return
 	reload()
 	is_reloading = false
+	_reload_start_time_ms = 0
 	_reload_end_time_ms = 0
 
 func can_fire_shot() -> bool:
@@ -117,7 +120,17 @@ func reload_pressed() -> void:
 		reload()
 		return
 	is_reloading = true
+	_reload_start_time_ms = Time.get_ticks_msec()
 	_reload_end_time_ms = Time.get_ticks_msec() + int(reload_duration * 1000.0)
+
+func get_reload_progress() -> float:
+	if not is_reloading:
+		return 0.0
+	var total = float(_reload_end_time_ms - _reload_start_time_ms)
+	if total <= 0.0:
+		return 1.0
+	var elapsed = float(Time.get_ticks_msec() - _reload_start_time_ms)
+	return clamp(elapsed / total, 0.0, 1.0)
 
 func reload() -> void:
 	var can_reload = get_amount_can_reload()
