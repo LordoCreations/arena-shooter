@@ -55,9 +55,10 @@ var username = ""
 
 # --- HUD ---
 @onready var hud = $SpringArm3D/Camera3D/HUD
-@onready var health_lag_bar = $SpringArm3D/Camera3D/HUD/MarginContainer/HealthLagBar
-@onready var health_bar = $SpringArm3D/Camera3D/HUD/MarginContainer/HealthBar
-@onready var ammo_label = $SpringArm3D/Camera3D/HUD/AmmoLabel
+@onready var health_lag_bar = $SpringArm3D/Camera3D/HUD/HealthContainer/HealthLagBar
+@onready var health_bar = $SpringArm3D/Camera3D/HUD/HealthContainer/HealthBar
+@onready var health_text_label = $SpringArm3D/Camera3D/HUD/HealthContainer/HealthValueLabel
+@onready var ammo_label = $SpringArm3D/Camera3D/HUD/AmmoContainer/AmmoLabel
 @onready var hud_hit_flash = $SpringArm3D/Camera3D/HUD/HitFlash
 @onready var username_tag = $Username
 @onready var damage_bar_root = $DamageBarRoot
@@ -328,8 +329,15 @@ func _enemy_health_color_from_ratio(_ratio: float) -> Color:
 func _update_hud_health_visuals() -> void:
 	health_bar.value = 100.0 * _hud_health_ratio
 	health_lag_bar.value = 100.0 * _hud_lag_ratio
+	var health_color = _hud_health_color_from_ratio(_hud_health_ratio)
 	if _hud_fill_style:
-		_hud_fill_style.bg_color = _hud_health_color_from_ratio(_hud_health_ratio)
+		_hud_fill_style.bg_color = health_color
+
+	if health_text_label:
+		var current_health = int(round(clamp(health, 0.0, max_health)))
+		var max_health_int = int(round(max_health))
+		health_text_label.text = str(current_health) + "/" + str(max_health_int)
+		health_text_label.add_theme_color_override("font_color", health_color)
 
 	var bar_rect = health_bar.get_global_rect()
 	var hud_rect = hud.get_global_rect()

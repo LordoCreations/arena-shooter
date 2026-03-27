@@ -31,6 +31,7 @@ var weapon_manager : WeaponManager
 @export var max_reserve_ammo: int = 120
 @export var fire_rate_time: float = 0.2
 @export var recoil_power: Vector2 = Vector2(0.5, 0.05)
+@export var ads_fov: float = 50.0
 @export var muzzle_flash_scene: PackedScene = preload("res://weapons/vfx/muzzle_flash.tscn")
 @export var muzzle_flash_position: Vector3 = Vector3.ZERO
 

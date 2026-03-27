@@ -52,8 +52,16 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func start_aim():
 	is_aiming_state = true
-	set_camera_goals(1.5, 0, 0.0, 50.0)
+	set_camera_goals(1.5, 0, 0.0, _get_ads_fov())
 	aim_toggled.emit(true)
+
+func _get_ads_fov() -> float:
+	var player_node = get_parent()
+	if player_node and player_node.get("weapon_manager"):
+		var wm = player_node.get("weapon_manager")
+		if wm and wm.current_weapon:
+			return wm.current_weapon.ads_fov
+	return 50.0
 
 func stop_aim():
 	is_aiming_state = false
