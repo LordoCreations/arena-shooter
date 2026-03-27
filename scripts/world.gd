@@ -2,6 +2,22 @@ extends Node
 
 @export var pause: bool = false
 var popup_template_scene := preload("res://scenes/ui/menu_popup_template.tscn")
+@export var ammo_box_scene: PackedScene = preload("res://scenes/ammo_box.tscn")
+@export var gun_box_scene: PackedScene = preload("res://scenes/gun_box.tscn")
+@export var ammo_spawn_interval_seconds: float = 10.0
+@export var gun_spawn_interval_seconds: float = 30.0
+@export var gun_boxes_per_cycle: int = 2
+@export var max_active_ammo_boxes: int = 10
+@export var max_active_gun_boxes: int = 6
+@export var loot_spawn_radius: float = 45.0
+@export var loot_drop_height: float = 8.0
+@export var loot_ground_probe_height: float = 120.0
+@export var loot_ground_probe_depth: float = 260.0
+@export var loot_despawn_y_threshold: float = -50.0
+@export var gun_box_weapon_pool: Array[WeaponResource] = [
+	preload("res://weapons/blaster/blaster.tres"),
+	preload("res://weapons/pistol/pistol.tres"),
+]
 
 # --- Pause Menu ---
 @onready var pause_menu = $CanvasLayer/InGameMenu/PauseMenu
@@ -11,16 +27,255 @@ var popup_template_scene := preload("res://scenes/ui/menu_popup_template.tscn")
 @onready var volume_value_label = $CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/VolumeRow/VolumeValue
 @onready var lobby_controls_panel = $CanvasLayer/InGameMenu/LobbyControls
 @onready var lobby_controls_list = $CanvasLayer/InGameMenu/LobbyControls/MarginContainer/VBoxContainer/PlayerScroll/PlayerList
+@onready var loot_root: Node3D = get_node_or_null("Loot")
 
 var _steam_error_popup
+var _ammo_spawn_timer: Timer
+var _gun_spawn_timer: Timer
+var _loot_id_counter: int = 1
+var _loot_nodes: Dictionary = {}
+var _loot_spawn_data: Dictionary = {}
+
+const LOOT_TYPE_AMMO := 0
+const LOOT_TYPE_GUN := 1
 
 func _ready() -> void:
 	pause_menu.hide()
 	lobby_controls_panel.hide()
 	_sync_volume_slider_from_master()
+	_setup_loot_spawning()
+	if not multiplayer.peer_connected.is_connected(_on_peer_connected_sync_loot):
+		multiplayer.peer_connected.connect(_on_peer_connected_sync_loot)
 	_start_pending_network()
 	_update_lobby_info()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _setup_loot_spawning() -> void:
+	if loot_root == null:
+		loot_root = Node3D.new()
+		loot_root.name = "Loot"
+		add_child(loot_root)
+
+	_ammo_spawn_timer = Timer.new()
+	_ammo_spawn_timer.one_shot = false
+	_ammo_spawn_timer.autostart = true
+	_ammo_spawn_timer.wait_time = max(ammo_spawn_interval_seconds, 0.1)
+	_ammo_spawn_timer.timeout.connect(_on_ammo_spawn_timer_timeout)
+	add_child(_ammo_spawn_timer)
+
+	_gun_spawn_timer = Timer.new()
+	_gun_spawn_timer.one_shot = false
+	_gun_spawn_timer.autostart = true
+	_gun_spawn_timer.wait_time = max(gun_spawn_interval_seconds, 0.1)
+	_gun_spawn_timer.timeout.connect(_on_gun_spawn_timer_timeout)
+	add_child(_gun_spawn_timer)
+
+func _is_loot_spawn_host() -> bool:
+	if not has_node("%NetworkManager"):
+		return false
+	return %NetworkManager.is_host()
+
+func _on_ammo_spawn_timer_timeout() -> void:
+	if not _is_loot_spawn_host():
+		return
+	_spawn_loot_batch(LOOT_TYPE_AMMO, 1)
+
+func _on_gun_spawn_timer_timeout() -> void:
+	if not _is_loot_spawn_host():
+		return
+	_spawn_loot_batch(LOOT_TYPE_GUN, max(gun_boxes_per_cycle, 0))
+
+func _spawn_loot_batch(loot_type: int, count: int) -> void:
+	if count <= 0:
+		return
+
+	var max_allowed := _get_max_loot_count_for_type(loot_type)
+	if max_allowed <= 0:
+		return
+
+	var active_count := _get_active_loot_count_for_type(loot_type)
+	var available_slots: int = max(max_allowed - active_count, 0)
+	if available_slots <= 0:
+		return
+
+	var spawn_count: int = min(count, available_slots)
+	for _i in range(spawn_count):
+		var loot_id := _loot_id_counter
+		_loot_id_counter += 1
+		var spawn_position := _find_random_loot_spawn_position()
+		var yaw := randf_range(0.0, TAU)
+		var weapon_path := ""
+		if loot_type == LOOT_TYPE_GUN:
+			weapon_path = _pick_random_weapon_path()
+			if weapon_path == "":
+				continue
+		_loot_spawn_data[loot_id] = {
+			"loot_type": loot_type,
+			"authority_peer_id": multiplayer.get_unique_id(),
+			"weapon_path": weapon_path,
+		}
+		_spawn_loot_box.rpc(loot_id, loot_type, spawn_position, yaw, multiplayer.get_unique_id(), weapon_path)
+
+func _get_max_loot_count_for_type(loot_type: int) -> int:
+	if loot_type == LOOT_TYPE_AMMO:
+		return max(max_active_ammo_boxes, 0)
+	if loot_type == LOOT_TYPE_GUN:
+		return max(max_active_gun_boxes, 0)
+	return 0
+
+func _get_active_loot_count_for_type(loot_type: int) -> int:
+	var count := 0
+	for loot_id in _loot_nodes.keys():
+		var loot_node = _loot_nodes.get(loot_id)
+		if loot_node == null or not is_instance_valid(loot_node):
+			continue
+		var spawn_data: Dictionary = _loot_spawn_data.get(loot_id, {})
+		if int(spawn_data.get("loot_type", -1)) == loot_type:
+			count += 1
+	return count
+
+func _on_peer_connected_sync_loot(peer_id: int) -> void:
+	if not _is_loot_spawn_host():
+		return
+
+	for loot_id in _loot_nodes.keys():
+		var loot_node = _loot_nodes.get(loot_id)
+		if not (loot_node is Node3D) or not is_instance_valid(loot_node):
+			continue
+
+		var body := loot_node as Node3D
+		var spawn_data: Dictionary = _loot_spawn_data.get(loot_id, {})
+		var loot_type: int = int(spawn_data.get("loot_type", LOOT_TYPE_AMMO))
+		var authority_peer_id: int = int(spawn_data.get("authority_peer_id", multiplayer.get_unique_id()))
+		var weapon_path: String = str(spawn_data.get("weapon_path", ""))
+		_spawn_loot_box.rpc_id(peer_id, int(loot_id), loot_type, body.global_position, body.rotation.y, authority_peer_id, weapon_path)
+
+func _find_random_loot_spawn_position() -> Vector3:
+	var center: Vector3 = MultiplayerManager.respawn_point
+	var world_3d: World3D = get_viewport().world_3d
+	if world_3d == null:
+		return center + Vector3(0.0, loot_drop_height, 0.0)
+	var space_state: PhysicsDirectSpaceState3D = world_3d.direct_space_state
+	for _attempt in range(18):
+		var offset := Vector2(randf_range(-loot_spawn_radius, loot_spawn_radius), randf_range(-loot_spawn_radius, loot_spawn_radius))
+		if offset.length() > loot_spawn_radius:
+			offset = offset.normalized() * randf_range(0.0, loot_spawn_radius)
+		var ray_start := center + Vector3(offset.x, loot_ground_probe_height, offset.y)
+		var ray_end := ray_start - Vector3.UP * loot_ground_probe_depth
+		var query := PhysicsRayQueryParameters3D.create(ray_start, ray_end)
+		var hit: Dictionary = space_state.intersect_ray(query)
+		if not hit.is_empty():
+			var hit_position: Vector3 = hit["position"]
+			return hit_position + Vector3.UP * loot_drop_height
+
+	return center + Vector3(randf_range(-loot_spawn_radius, loot_spawn_radius), loot_drop_height, randf_range(-loot_spawn_radius, loot_spawn_radius))
+
+@rpc("authority", "call_local", "reliable")
+func _spawn_loot_box(loot_id: int, loot_type: int, spawn_position: Vector3, yaw: float, authority_peer_id: int, weapon_path: String = "") -> void:
+	if _loot_nodes.has(loot_id):
+		return
+	var scene: PackedScene = ammo_box_scene if loot_type == LOOT_TYPE_AMMO else gun_box_scene
+	if scene == null:
+		return
+	if loot_root == null:
+		loot_root = get_node_or_null("Loot")
+		if loot_root == null:
+			return
+
+	var loot_node = scene.instantiate()
+	if not (loot_node is Node3D):
+		if loot_node is Node:
+			(loot_node as Node).queue_free()
+		return
+
+	var body := loot_node as Node3D
+	body.name = "LootBox_%s" % loot_id
+	body.global_position = spawn_position
+	body.rotation.y = yaw
+	loot_root.add_child(body, true)
+
+	if body.has_method("setup_loot_box"):
+		body.call("setup_loot_box", loot_id, authority_peer_id)
+	if body.has_method("set_despawn_y_threshold"):
+		body.call("set_despawn_y_threshold", loot_despawn_y_threshold)
+	if body.has_method("set_contained_weapon_path"):
+		body.call("set_contained_weapon_path", weapon_path)
+
+	_loot_nodes[loot_id] = body
+
+func consume_loot_box(loot_id: int, peer_id: int, loot_type: int) -> void:
+	if not _is_loot_spawn_host():
+		return
+	if not _loot_nodes.has(loot_id):
+		return
+
+	var player = _get_player_for_peer(peer_id)
+	if player == null:
+		return
+
+	if loot_type == LOOT_TYPE_AMMO:
+		_grant_max_reserve_ammo(player, peer_id)
+	elif loot_type == LOOT_TYPE_GUN:
+		var spawn_data: Dictionary = _loot_spawn_data.get(loot_id, {})
+		var weapon_path: String = str(spawn_data.get("weapon_path", ""))
+		if weapon_path == "":
+			weapon_path = _pick_random_weapon_path()
+		_grant_weapon_by_path(player, peer_id, weapon_path)
+
+	_remove_loot_box.rpc(loot_id)
+
+func _get_player_for_peer(peer_id: int) -> Node:
+	var players := get_node_or_null("Players")
+	if players == null:
+		return null
+	return players.get_node_or_null(str(peer_id))
+
+func _grant_max_reserve_ammo(player: Node, peer_id: int) -> void:
+	if peer_id == multiplayer.get_unique_id():
+		if player.has_method("give_full_reserve_ammo_local"):
+			player.call("give_full_reserve_ammo_local")
+		return
+	if player.has_method("give_full_reserve_ammo"):
+		player.rpc_id(peer_id, "give_full_reserve_ammo")
+
+func _grant_weapon_by_path(player: Node, peer_id: int, weapon_path: String) -> void:
+	if weapon_path == "":
+		return
+
+	if peer_id == multiplayer.get_unique_id():
+		if player.has_method("equip_weapon_full_from_path_local"):
+			player.call("equip_weapon_full_from_path_local", weapon_path)
+		return
+	if player.has_method("equip_weapon_full_from_path"):
+		player.rpc_id(peer_id, "equip_weapon_full_from_path", weapon_path)
+
+func _pick_random_weapon_path() -> String:
+	var valid_paths: Array[String] = []
+	for weapon_resource in gun_box_weapon_pool:
+		if weapon_resource == null:
+			continue
+		if weapon_resource.resource_path == "":
+			continue
+		if ResourceLoader.exists(weapon_resource.resource_path):
+			valid_paths.append(weapon_resource.resource_path)
+	if valid_paths.is_empty():
+		return ""
+	return valid_paths[randi() % valid_paths.size()]
+
+@rpc("authority", "call_local", "reliable")
+func _remove_loot_box(loot_id: int) -> void:
+	var loot_node = _loot_nodes.get(loot_id)
+	if loot_node != null and is_instance_valid(loot_node):
+		loot_node.queue_free()
+	_loot_nodes.erase(loot_id)
+	_loot_spawn_data.erase(loot_id)
+
+func despawn_loot_box(loot_id: int) -> void:
+	if not _is_loot_spawn_host():
+		return
+	if not _loot_nodes.has(loot_id):
+		return
+	_remove_loot_box.rpc(loot_id)
 
 func _sync_volume_slider_from_master() -> void:
 	var bus_idx = AudioServer.get_bus_index("Master")
@@ -187,3 +442,6 @@ func _on_steam_error_in_game_dismissed() -> void:
 	if is_instance_valid(_steam_error_popup):
 		_steam_error_popup.close_popup()
 	_on_main_menu_pressed()
+
+func _on_multiplayer_spawner_spawned(_node: Node) -> void:
+	pass

@@ -74,6 +74,18 @@ var username = ""
 @export var hit_flash_decay_speed: float = 3.6
 @export var regen_delay_seconds: float = 6.0
 @export var regen_percent_per_second: float = 0.03
+@export var world_fall_kill_y: float = -45.0
+
+var _loot_prompt_label: Label
+const LOOT_INTERACT_DISTANCE := 2.4
+const LOOT_PUSH_DISTANCE := 3.2
+const LOOT_PLAYER_PUSH_SCALE := 4.0
+@export var interact_hold_duration_seconds: float = 0.5
+
+var _interact_hold_progress: float = 0.0
+var _interact_hold_target: Node = null
+var _is_interact_holding: bool = false
+var _next_loot_push_time_ms: int = 0
 
 var _damage_bar_visible_until_ms: int = 0
 var _last_damage_time_ms: int = 0
@@ -147,10 +159,155 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("reload"):
 		weapon_manager.request_reload()
 
+	if event.is_action_released("interact"):
+		_reset_interact_hold_state()
+
+func _try_interact_loot_box(collider_node: Node = null) -> void:
+	if collider_node == null:
+		collider_node = _find_nearby_loot_box(false, LOOT_INTERACT_DISTANCE)
+	if collider_node == null:
+		return
+
+	var authority_id := collider_node.get_multiplayer_authority()
+	if authority_id == multiplayer.get_unique_id() and collider_node.has_method("interact_from_peer"):
+		collider_node.call("interact_from_peer", multiplayer.get_unique_id())
+	elif authority_id > 0:
+		collider_node.rpc_id(authority_id, "request_interact")
+
+
+func _find_nearby_loot_box(require_pushable: bool = false, max_distance: float = LOOT_INTERACT_DISTANCE) -> Node:
+	if get_tree() == null:
+		return null
+	var loot_nodes := get_tree().get_nodes_in_group("loot_boxes")
+	var closest_loot: Node = null
+	var closest_distance: float = INF
+	for loot_node in loot_nodes:
+		if not (loot_node is Node):
+			continue
+		var collider_node := loot_node as Node
+		if not collider_node.has_method("request_interact"):
+			continue
+		if not (collider_node is Node3D):
+			continue
+		if require_pushable:
+			var pushable_value = collider_node.get("pushable")
+			if typeof(pushable_value) != TYPE_BOOL or not bool(pushable_value):
+				continue
+
+		var allowed_distance := max_distance
+		if not require_pushable:
+			var interact_value = collider_node.get("interaction_distance")
+			if typeof(interact_value) == TYPE_FLOAT or typeof(interact_value) == TYPE_INT:
+				allowed_distance = max(allowed_distance, float(interact_value))
+
+		var loot_position := (collider_node as Node3D).global_position
+		var delta := loot_position - global_position
+		var horizontal_distance := Vector2(delta.x, delta.z).length()
+		if horizontal_distance > allowed_distance:
+			continue
+		if abs(delta.y) > 2.5:
+			continue
+
+		if horizontal_distance < closest_distance:
+			closest_distance = horizontal_distance
+			closest_loot = collider_node
+
+	return closest_loot
+
+func _reset_interact_hold_state() -> void:
+	_interact_hold_progress = 0.0
+	_interact_hold_target = null
+	_is_interact_holding = false
+
+func _update_interact_hold(delta: float) -> void:
+	if not is_multiplayer_authority() or not MultiplayerManager.controls_enabled:
+		_reset_interact_hold_state()
+		return
+
+	if not Input.is_action_pressed("interact"):
+		_reset_interact_hold_state()
+		return
+
+	var nearby_loot := _find_nearby_loot_box(false, LOOT_INTERACT_DISTANCE)
+	if nearby_loot == null:
+		_reset_interact_hold_state()
+		return
+
+	_is_interact_holding = true
+	if _interact_hold_target != nearby_loot:
+		_interact_hold_target = nearby_loot
+		_interact_hold_progress = 0.0
+
+	var hold_duration: float = max(interact_hold_duration_seconds, 0.01)
+	_interact_hold_progress = clamp(_interact_hold_progress + (delta / hold_duration), 0.0, 1.0)
+	if _interact_hold_progress >= 1.0:
+		_try_interact_loot_box(_interact_hold_target)
+		_interact_hold_progress = 0.0
+
+func should_show_interact_hold_indicator() -> bool:
+	return _is_interact_holding and _interact_hold_target != null
+
+func get_interact_hold_progress() -> float:
+	return clamp(_interact_hold_progress, 0.0, 1.0)
+
+func _create_loot_prompt() -> void:
+	if hud == null:
+		return
+	if _loot_prompt_label and is_instance_valid(_loot_prompt_label):
+		return
+
+	_loot_prompt_label = Label.new()
+	_loot_prompt_label.name = "LootPrompt"
+	_loot_prompt_label.anchor_left = 0.5
+	_loot_prompt_label.anchor_right = 0.5
+	_loot_prompt_label.anchor_top = 1.0
+	_loot_prompt_label.anchor_bottom = 1.0
+	_loot_prompt_label.offset_left = -240.0
+	_loot_prompt_label.offset_right = 240.0
+	_loot_prompt_label.offset_top = -138.0
+	_loot_prompt_label.offset_bottom = -84.0
+	_loot_prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_loot_prompt_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	_loot_prompt_label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95, 1.0))
+	_loot_prompt_label.add_theme_color_override("font_outline_color", Color(0.0, 0.0, 0.0, 0.85))
+	_loot_prompt_label.add_theme_constant_override("outline_size", 2)
+	_loot_prompt_label.add_theme_font_size_override("font_size", 28)
+	_loot_prompt_label.visible = false
+	hud.add_child(_loot_prompt_label)
+
+func _update_loot_prompt() -> void:
+	if not is_multiplayer_authority():
+		return
+	if _loot_prompt_label == null or not is_instance_valid(_loot_prompt_label):
+		return
+	if not MultiplayerManager.controls_enabled:
+		_loot_prompt_label.visible = false
+		return
+
+	var loot_node := _find_nearby_loot_box()
+	if loot_node == null:
+		_loot_prompt_label.visible = false
+		return
+
+	var loot_type_value = loot_node.get("loot_type")
+	var loot_name := "Loot"
+	if typeof(loot_type_value) == TYPE_INT:
+		if int(loot_type_value) == 0:
+			loot_name = "Ammo"
+		elif int(loot_type_value) == 1:
+			loot_name = "Gun"
+
+	_loot_prompt_label.text = "Hold [E] to open %s" % loot_name
+	_loot_prompt_label.visible = true
+
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
 		update_nameplate_visibility()
 		_apply_animation_state(network_is_sprinting, network_anim_blend)
+		return
+
+	if global_position.y <= world_fall_kill_y:
+		_kill_from_world_fall()
 		return
 
 	var controls_enabled = MultiplayerManager.controls_enabled
@@ -184,10 +341,12 @@ func _process(delta: float) -> void:
 		_overhead_lag_ratio = move_toward(_overhead_lag_ratio, _overhead_health_ratio, enemy_damage_lag_speed * delta)
 	_hud_hit_flash_strength = move_toward(_hud_hit_flash_strength, 0.0, hit_flash_decay_speed * delta)
 	_overhead_hit_flash_strength = move_toward(_overhead_hit_flash_strength, 0.0, hit_flash_decay_speed * delta)
+	_update_interact_hold(delta)
 
 	_update_hud_health_visuals()
 	_update_damage_bar_visuals()
 	_update_ammo_display()
+	_update_loot_prompt()
 
 func get_move_speed() -> float:
 	return sprint_speed if is_sprinting else walk_speed;
@@ -249,6 +408,38 @@ func move(delta: float, allow_player_input: bool = true) -> void:
 	# Visual Rotation and Animation
 	handle_visuals(delta)
 	move_and_slide()
+	_handle_loot_push_collisions()
+
+func _handle_loot_push_collisions() -> void:
+	if not is_multiplayer_authority():
+		return
+	if not MultiplayerManager.controls_enabled:
+		return
+	if Time.get_ticks_msec() < _next_loot_push_time_ms:
+		return
+
+	var horizontal_speed := Vector2(velocity.x, velocity.z).length()
+	if horizontal_speed <= 0.2:
+		return
+
+	var collider_node := _find_nearby_loot_box(true, LOOT_PUSH_DISTANCE)
+	if collider_node == null or not (collider_node is Node3D):
+		return
+
+	var push_direction := Vector3(velocity.x, 0.0, velocity.z)
+	if push_direction.is_zero_approx():
+		return
+
+	var strength_scale: float = clamp(horizontal_speed / LOOT_PLAYER_PUSH_SCALE, 0.25, 2.5)
+	var authority_id := collider_node.get_multiplayer_authority()
+	var hit_position := (collider_node as Node3D).global_position + Vector3.UP * 0.2
+	var max_push_speed: float = horizontal_speed
+	_next_loot_push_time_ms = Time.get_ticks_msec() + 55
+
+	if authority_id == multiplayer.get_unique_id() and collider_node.has_method("apply_player_push"):
+		collider_node.call("apply_player_push", hit_position, push_direction, strength_scale, max_push_speed)
+	elif authority_id > 0:
+		collider_node.rpc_id(authority_id, "request_player_push", hit_position, push_direction, strength_scale, max_push_speed)
 
 func handle_visuals(delta: float) -> void:
 	var camera_yaw = camera_arm.rotation.y
@@ -364,6 +555,55 @@ func _update_ammo_display() -> void:
 	ammo_label.text = str(max(weapon.current_ammo, 0)) + "/" + str(max(weapon.magazine_capacity, 0))
 	if reserve_ammo_label:
 		reserve_ammo_label.text = str(max(weapon.reserve_ammo, 0))
+
+func give_full_reserve_ammo_local() -> void:
+	if not is_multiplayer_authority():
+		return
+	if weapon_manager and weapon_manager.has_method("refill_current_weapon_reserve_to_max"):
+		weapon_manager.refill_current_weapon_reserve_to_max()
+	_update_ammo_display()
+
+@rpc("any_peer", "call_remote", "reliable")
+func give_full_reserve_ammo() -> void:
+	give_full_reserve_ammo_local()
+
+func equip_weapon_full_from_path_local(weapon_resource_path: String) -> void:
+	if not is_multiplayer_authority():
+		return
+	if weapon_resource_path == "":
+		return
+	if not ResourceLoader.exists(weapon_resource_path):
+		return
+	var weapon_resource = load(weapon_resource_path)
+	if not (weapon_resource is WeaponResource):
+		return
+	if weapon_manager and weapon_manager.has_method("equip_weapon_template"):
+		weapon_manager.equip_weapon_template(weapon_resource, true)
+	_update_ammo_display()
+
+@rpc("any_peer", "call_remote", "reliable")
+func equip_weapon_full_from_path(weapon_resource_path: String) -> void:
+	equip_weapon_full_from_path_local(weapon_resource_path)
+
+func _kill_from_world_fall() -> void:
+	health = 0.0
+	hide()
+	spawn()
+
+func _get_spawn_zone_positions() -> Array[Vector3]:
+	var positions: Array[Vector3] = []
+	var world := get_tree().current_scene
+	if world == null:
+		return positions
+
+	var zones_root := world.get_node_or_null("SpawnZones")
+	if zones_root == null:
+		return positions
+
+	for child in zones_root.get_children():
+		if child is Node3D:
+			positions.append((child as Node3D).global_position)
+	return positions
 
 func _update_damage_bar_visuals() -> void:
 	_set_damage_mesh_ratio(damage_bar_fill, _overhead_health_ratio)
@@ -485,6 +725,7 @@ func _ready():
 		return
 	
 	hud.show()
+	_create_loot_prompt()
 	_update_ammo_display()
 		
 	camera.current = true
@@ -499,7 +740,11 @@ func spawn() -> void:
 	health = max_health
 	_last_damage_time_ms = Time.get_ticks_msec()
 	show()
-	position = MultiplayerManager.respawn_point
+	var spawn_positions := _get_spawn_zone_positions()
+	if spawn_positions.is_empty():
+		position = MultiplayerManager.respawn_point
+	else:
+		global_position = spawn_positions[randi() % spawn_positions.size()]
 	_set_local_health_ratio(health / max_health)
 	_hud_lag_ratio = _hud_health_ratio
 	_damage_bar_visible_until_ms = 0

@@ -22,8 +22,44 @@ var current_world_model : Node3D
 # Audio
 @onready var audio_stream_player := $AudioStreamPlayer3D
 
+func _clear_weapon_models() -> void:
+	if current_view_model and is_instance_valid(current_view_model):
+		current_view_model.queue_free()
+	if current_world_model and is_instance_valid(current_world_model):
+		current_world_model.queue_free()
+	current_view_model = null
+	current_world_model = null
+
+func refill_current_weapon_reserve_to_max() -> void:
+	if not current_weapon:
+		return
+	current_weapon.reserve_ammo = max(current_weapon.max_reserve_ammo, 0)
+
+func equip_weapon_template(weapon_template: WeaponResource, fill_full_ammo: bool = false) -> void:
+	if not weapon_template:
+		return
+
+	if current_weapon:
+		current_weapon.trigger_down = false
+		current_weapon.is_equipped = false
+
+	_clear_weapon_models()
+	stop_sounds()
+
+	current_weapon = weapon_template.duplicate(true)
+	if fill_full_ammo:
+		current_weapon.current_ammo = max(current_weapon.magazine_capacity, 0)
+		current_weapon.reserve_ammo = max(current_weapon.max_reserve_ammo, 0)
+
+	update_weapon_model()
+
 func update_weapon_model() -> void:
+	_clear_weapon_models()
+
 	if current_weapon != null:
+		if current_weapon.resource_path != "" and current_weapon.weapon_manager != self:
+			current_weapon = current_weapon.duplicate(true)
+
 		current_weapon.weapon_manager = self
 		
 		if view_model_container and current_weapon.view_model:
@@ -179,13 +215,27 @@ func _try_fire() -> void:
 	var col_point = bullet_cast.get_collision_point()
 	var normal = bullet_cast.get_collision_normal()
 	var bullet_dir = (col_point - bullet_cast.global_position).normalized()
+	var spawn_decal := false
 
 	if hit_obj is Node and hit_obj.has_method("hurt"):
 		hit_obj.hurt.rpc_id(hit_obj.get_multiplayer_authority(), current_weapon.damage)
 		sync_impact.rpc("enemy", col_point, normal, bullet_dir)
 	else:
+		if hit_obj is Node and hit_obj.has_method("request_bullet_impulse"):
+			var hit_node := hit_obj as Node
+			var authority_id := hit_node.get_multiplayer_authority()
+			var strength_scale: float = max(current_weapon.damage * 0.5, 10.0)
+			if authority_id == multiplayer.get_unique_id() and hit_node.has_method("apply_bullet_impulse"):
+				hit_node.call("apply_bullet_impulse", col_point, bullet_dir, strength_scale)
+			elif authority_id > 0:
+				hit_node.rpc_id(authority_id, "request_bullet_impulse", col_point, bullet_dir, strength_scale)
+			spawn_decal = false
+		elif hit_obj is StaticBody3D:
+			# Restrict decals to static terrain-like geometry.
+			spawn_decal = true
 		sync_impact.rpc("terrain", col_point, normal, bullet_dir)
-		sync_impact.rpc("decal", col_point, normal, bullet_dir)
+		if spawn_decal:
+			sync_impact.rpc("decal", col_point, normal, bullet_dir)
 
 func _apply_recoil() -> void:
 	if not camera_arm or not camera_arm.has_method("apply_recoil"):

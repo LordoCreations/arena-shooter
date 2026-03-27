@@ -81,7 +81,11 @@ func _update_reload_indicator_state() -> void:
 	var should_show = false
 	var progress = 0.0
 
-	if player and player.weapon_manager and player.weapon_manager.current_weapon:
+	if player and player.has_method("should_show_interact_hold_indicator") and player.call("should_show_interact_hold_indicator"):
+		should_show = true
+		if player.has_method("get_interact_hold_progress"):
+			progress = float(player.call("get_interact_hold_progress"))
+	elif player and player.weapon_manager and player.weapon_manager.current_weapon:
 		var weapon = player.weapon_manager.current_weapon
 		if weapon.is_reloading:
 			should_show = true

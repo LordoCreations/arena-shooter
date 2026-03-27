@@ -9,6 +9,7 @@
 
 [resource]
 script = ExtResource("1_ckfx7")
+name = "Revolver"
 view_model = ExtResource("2_tsb7k")
 view_model_scale = Vector3(0.3, 0.3, 0.3)
 world_model = ExtResource("2_tsb7k")
@@ -22,6 +23,7 @@ view_reload_anim = "reload"
 damage = 40.0
 current_ammo = 6
 magazine_capacity = 6
+max_reserve_ammo = 36
 fire_rate_time = 0.4
 muzzle_flash_position = Vector3(0, 0.122, -0.6629)
 shoot_sound = ExtResource("4_f2tw8")

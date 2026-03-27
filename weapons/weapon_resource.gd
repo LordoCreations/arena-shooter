@@ -2,6 +2,7 @@ class_name WeaponResource
 extends Resource
 
 var weapon_manager : WeaponManager
+@export var name : String
 
 # First Person Perspective
 @export var view_model : PackedScene

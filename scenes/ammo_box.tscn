@@ -1,0 +1,35 @@
+[gd_scene load_steps=5 format=3 uid="uid://xblqqsw6akli"]
+
+[ext_resource type="Script" uid="uid://kxf8pjubpq53" path="res://scripts/loot_box.gd" id="1_1w95n"]
+[ext_resource type="PackedScene" uid="uid://ccrgtn2ayeiyr" path="res://assets/loot/box_large.gltf" id="2_ufc7x"]
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_8rj8s"]
+size = Vector3(1.5, 1.5, 1.5)
+
+[sub_resource type="SceneReplicationConfig" id="SceneReplicationConfig_j20bx"]
+properties/0/path = NodePath(".:position")
+properties/0/spawn = true
+properties/0/replication_mode = 1
+properties/1/path = NodePath(".:rotation")
+properties/1/spawn = true
+properties/1/replication_mode = 1
+properties/2/path = NodePath(".:linear_velocity")
+properties/2/spawn = false
+properties/2/replication_mode = 1
+properties/3/path = NodePath(".:angular_velocity")
+properties/3/spawn = false
+properties/3/replication_mode = 1
+
+[node name="AmmoBox" type="RigidBody3D"]
+mass = 4.0
+continuous_cd = true
+script = ExtResource("1_1w95n")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.75, 0)
+shape = SubResource("BoxShape3D_8rj8s")
+
+[node name="Model" parent="." instance=ExtResource("2_ufc7x")]
+
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
+replication_config = SubResource("SceneReplicationConfig_j20bx")

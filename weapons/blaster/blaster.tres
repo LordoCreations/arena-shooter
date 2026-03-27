@@ -2,13 +2,14 @@
 
 [ext_resource type="AudioStream" uid="uid://pspltg1gti4s" path="res://weapons/pistol/unholster_pistol.mp3" id="1_ahuer"]
 [ext_resource type="PackedScene" uid="uid://cupogmlrh2i7m" path="res://weapons/vfx/muzzle_flash.tscn" id="2_0yx20"]
-[ext_resource type="AudioStream" uid="uid://bfakfv3egettq" path="res://weapons/pistol/pistol_reload.mp3" id="3_nwkn3"]
+[ext_resource type="AudioStream" uid="uid://dr3w7ra83tbx2" path="res://weapons/blaster/blaster_reload.mp3" id="3_tdi56"]
 [ext_resource type="Script" uid="uid://p2tgys828nkh" path="res://weapons/weapon_resource.gd" id="4_s48sy"]
-[ext_resource type="AudioStream" uid="uid://bt2ewffut6qaw" path="res://weapons/pistol/shoot_pistol.mp3" id="5_5w4ag"]
+[ext_resource type="AudioStream" uid="uid://b3nk4rswgpw55" path="res://weapons/blaster/blaster_shot.mp3" id="5_830ct"]
 [ext_resource type="PackedScene" uid="uid://rldk0l5bhsg5" path="res://weapons/blaster/blaster.glb" id="6_tdi56"]
 
 [resource]
 script = ExtResource("4_s48sy")
+name = "Blaster"
 view_model = ExtResource("6_tdi56")
 view_model_pos = Vector3(0.5, 0, 0)
 view_model_scale = Vector3(0.3, 0.3, 0.3)
@@ -23,13 +24,13 @@ view_reload_anim = "reload"
 damage = 12.0
 current_ammo = 36
 magazine_capacity = 36
-reserve_ammo = 999
-max_reserve_ammo = 999
+reserve_ammo = 144
+max_reserve_ammo = 144
 fire_rate_time = 0.1
 recoil_power = Vector2(0.1, 0.05)
 ads_fov = 40.0
 muzzle_flash_position = Vector3(0, 0.122, -0.6629)
-shoot_sound = ExtResource("5_5w4ag")
-reload_sound = ExtResource("3_nwkn3")
+shoot_sound = ExtResource("5_830ct")
+reload_sound = ExtResource("3_tdi56")
 equip_sound = ExtResource("1_ahuer")
 metadata/_custom_type_script = "uid://p2tgys828nkh"

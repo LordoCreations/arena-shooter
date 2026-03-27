@@ -4,13 +4,13 @@
 [ext_resource type="Script" uid="uid://ddgpytddr1n72" path="res://scripts/camera_spring_arm.gd" id="2_onrkg"]
 [ext_resource type="Script" uid="uid://7ujj0fhdpae3" path="res://scripts/hand.gd" id="3_sweqy"]
 [ext_resource type="PackedScene" uid="uid://ltna52etv66f" path="res://weapons/weapon_manager.tscn" id="3_ur7pv"]
+[ext_resource type="Resource" uid="uid://danie5kuoen4g" path="res://weapons/pistol/pistol.tres" id="3_y4r1p"]
 [ext_resource type="Texture2D" uid="uid://twxdi5n3xqbx" path="res://assets/orange_astro_Image_0.jpg" id="4_smehm"]
 [ext_resource type="Texture2D" uid="uid://n25cv7h8qjql" path="res://assets/orange_astro_Image_1.jpg" id="5_ur7pv"]
 [ext_resource type="Texture2D" uid="uid://c05qh70wfopxn" path="res://assets/orange_astro_Image_2.jpg" id="6_y4r1p"]
 [ext_resource type="Script" uid="uid://oewxytkn6r4r" path="res://scripts/crosshair.gd" id="7_1jxqw"]
 [ext_resource type="Texture2D" uid="uid://bv6rqrrqhvkb" path="res://assets/ui/health.svg" id="8_01u6a"]
 [ext_resource type="Texture2D" uid="uid://wgb5xxpdfpho" path="res://assets/ui/ammunition.svg" id="9_xj8yf"]
-[ext_resource type="Resource" uid="uid://2bt5xciptsid" path="res://weapons/blaster/blaster.tres" id="11_d2wvv"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_i3pqv"]
 radius = 0.4
@@ -1794,6 +1794,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 2
 text = "Player
 "
+font_size = 36
 
 [node name="DamageBarRoot" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.3, 0)
@@ -1818,6 +1819,6 @@ mesh = SubResource("QuadMesh_damage_bar")
 
 [node name="WeaponManager" parent="." node_paths=PackedStringArray("view_model_container", "world_model_container") instance=ExtResource("3_ur7pv")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 1, -0.6)
-current_weapon = ExtResource("11_d2wvv")
+current_weapon = ExtResource("3_y4r1p")
 view_model_container = NodePath("../EquipmentPivot/Hand/ViewModel")
 world_model_container = NodePath("../Character/Container/orange_astro/Armature/Skeleton3D/BoneAttachment3D")
