@@ -4,13 +4,13 @@
 [ext_resource type="Script" uid="uid://ddgpytddr1n72" path="res://scripts/camera_spring_arm.gd" id="2_onrkg"]
 [ext_resource type="Script" uid="uid://7ujj0fhdpae3" path="res://scripts/hand.gd" id="3_sweqy"]
 [ext_resource type="PackedScene" uid="uid://ltna52etv66f" path="res://weapons/weapon_manager.tscn" id="3_ur7pv"]
-[ext_resource type="Resource" uid="uid://danie5kuoen4g" path="res://weapons/pistol/pistol.tres" id="3_y4r1p"]
 [ext_resource type="Texture2D" uid="uid://twxdi5n3xqbx" path="res://assets/orange_astro_Image_0.jpg" id="4_smehm"]
 [ext_resource type="Texture2D" uid="uid://n25cv7h8qjql" path="res://assets/orange_astro_Image_1.jpg" id="5_ur7pv"]
 [ext_resource type="Texture2D" uid="uid://c05qh70wfopxn" path="res://assets/orange_astro_Image_2.jpg" id="6_y4r1p"]
 [ext_resource type="Script" uid="uid://oewxytkn6r4r" path="res://scripts/crosshair.gd" id="7_1jxqw"]
 [ext_resource type="Texture2D" uid="uid://bv6rqrrqhvkb" path="res://assets/ui/health.svg" id="8_01u6a"]
 [ext_resource type="Texture2D" uid="uid://wgb5xxpdfpho" path="res://assets/ui/ammunition.svg" id="9_xj8yf"]
+[ext_resource type="Resource" uid="uid://2bt5xciptsid" path="res://weapons/blaster/blaster.tres" id="11_d2wvv"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_i3pqv"]
 radius = 0.4
@@ -1653,8 +1653,8 @@ anchors_preset = 2
 anchor_top = 1.0
 anchor_bottom = 1.0
 offset_left = 16.0
-offset_top = -78.0
-offset_right = 286.0
+offset_top = -84.0
+offset_right = 790.0
 offset_bottom = -16.0
 grow_vertical = 0
 mouse_filter = 2
@@ -1662,10 +1662,11 @@ mouse_filter = 2
 [node name="HealthLagBar" type="ProgressBar" parent="SpringArm3D/Camera3D/HUD/HealthContainer"]
 custom_minimum_size = Vector2(200, 20)
 layout_mode = 1
-offset_left = 28.0
-offset_top = 32.0
-offset_right = 252.0
-offset_bottom = 52.0
+offset_left = 109.0
+offset_top = 9.000001
+offset_right = 333.0
+offset_bottom = 29.0
+scale = Vector2(2.9076037, 2.2459896)
 mouse_filter = 2
 theme_override_styles/background = SubResource("StyleBoxFlat_hud_lag_bg")
 theme_override_styles/fill = SubResource("StyleBoxFlat_hud_lag_fill")
@@ -1676,10 +1677,11 @@ show_percentage = false
 [node name="HealthBar" type="ProgressBar" parent="SpringArm3D/Camera3D/HUD/HealthContainer"]
 custom_minimum_size = Vector2(200, 20)
 layout_mode = 1
-offset_left = 28.0
-offset_top = 32.0
-offset_right = 252.0
-offset_bottom = 52.0
+offset_left = 109.0
+offset_top = 9.000001
+offset_right = 333.0
+offset_bottom = 29.0
+scale = Vector2(2.9076037, 2.2459896)
 theme_override_styles/background = SubResource("StyleBoxFlat_1jxqw")
 theme_override_styles/fill = SubResource("StyleBoxFlat_dw050")
 value = 100.0
@@ -1688,23 +1690,23 @@ show_percentage = false
 
 [node name="HealthValueLabel" type="Label" parent="SpringArm3D/Camera3D/HUD/HealthContainer"]
 layout_mode = 1
-offset_left = 0.0
-offset_top = 0.0
-offset_right = 252.0
-offset_bottom = 24.0
+offset_left = 5.0
+offset_top = -84.0
+offset_right = 286.0
+offset_bottom = -17.0
 theme_override_colors/font_color = Color(0, 0.7172733, 0.3805772, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
 theme_override_constants/outline_size = 2
-theme_override_font_sizes/font_size = 18
+theme_override_font_sizes/font_size = 48
 text = "100/100"
 vertical_alignment = 2
 
 [node name="HealthIcon" type="TextureRect" parent="SpringArm3D/Camera3D/HUD/HealthContainer"]
 layout_mode = 1
-offset_left = 0.0
-offset_top = 32.0
-offset_right = 20.0
-offset_bottom = 52.0
+offset_left = 12.0
+offset_top = -6.0
+offset_right = 87.0
+offset_bottom = 57.57616
 mouse_filter = 2
 texture = ExtResource("8_01u6a")
 expand_mode = 5
@@ -1744,24 +1746,41 @@ mouse_filter = 2
 
 [node name="AmmoLabel" type="Label" parent="SpringArm3D/Camera3D/HUD/AmmoContainer"]
 layout_mode = 1
-offset_left = 28.0
-offset_top = 0.0
-offset_right = 140.0
-offset_bottom = 40.0
+anchors_preset = -1
+anchor_left = 0.388
+anchor_right = 0.388
+offset_left = -104.32
+offset_top = -51.0
+offset_right = 87.68
+offset_bottom = 48.0
 theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
 theme_override_colors/font_outline_color = Color(0, 0, 0, 0.85)
 theme_override_constants/outline_size = 3
-theme_override_font_sizes/font_size = 20
+theme_override_font_sizes/font_size = 72
 text = "12/12"
+horizontal_alignment = 2
+vertical_alignment = 2
+
+[node name="ReserveAmmoLabel" type="Label" parent="SpringArm3D/Camera3D/HUD/AmmoContainer"]
+layout_mode = 1
+offset_left = 23.0
+offset_top = -110.0
+offset_right = 135.0
+offset_bottom = -43.0
+theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 0.5)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.45)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 48
+text = "36"
 horizontal_alignment = 2
 vertical_alignment = 2
 
 [node name="AmmoIcon" type="TextureRect" parent="SpringArm3D/Camera3D/HUD/AmmoContainer"]
 layout_mode = 1
-offset_left = 0.0
-offset_top = 10.0
-offset_right = 20.0
-offset_bottom = 30.0
+offset_left = -126.0
+offset_top = -39.0
+offset_right = -72.0
+offset_bottom = 38.375694
 mouse_filter = 2
 texture = ExtResource("9_xj8yf")
 expand_mode = 5
@@ -1799,6 +1818,6 @@ mesh = SubResource("QuadMesh_damage_bar")
 
 [node name="WeaponManager" parent="." node_paths=PackedStringArray("view_model_container", "world_model_container") instance=ExtResource("3_ur7pv")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 1, -0.6)
-current_weapon = ExtResource("3_y4r1p")
+current_weapon = ExtResource("11_d2wvv")
 view_model_container = NodePath("../EquipmentPivot/Hand/ViewModel")
 world_model_container = NodePath("../Character/Container/orange_astro/Armature/Skeleton3D/BoneAttachment3D")

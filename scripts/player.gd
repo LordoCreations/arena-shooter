@@ -59,6 +59,7 @@ var username = ""
 @onready var health_bar = $SpringArm3D/Camera3D/HUD/HealthContainer/HealthBar
 @onready var health_text_label = $SpringArm3D/Camera3D/HUD/HealthContainer/HealthValueLabel
 @onready var ammo_label = $SpringArm3D/Camera3D/HUD/AmmoContainer/AmmoLabel
+@onready var reserve_ammo_label = $SpringArm3D/Camera3D/HUD/AmmoContainer/ReserveAmmoLabel
 @onready var hud_hit_flash = $SpringArm3D/Camera3D/HUD/HitFlash
 @onready var username_tag = $Username
 @onready var damage_bar_root = $DamageBarRoot
@@ -350,13 +351,19 @@ func _update_ammo_display() -> void:
 		return
 	if not is_multiplayer_authority():
 		ammo_label.text = ""
+		if reserve_ammo_label:
+			reserve_ammo_label.text = ""
 		return
 	if not weapon_manager or not weapon_manager.current_weapon:
 		ammo_label.text = "--/--"
+		if reserve_ammo_label:
+			reserve_ammo_label.text = "--"
 		return
 
 	var weapon = weapon_manager.current_weapon
 	ammo_label.text = str(max(weapon.current_ammo, 0)) + "/" + str(max(weapon.magazine_capacity, 0))
+	if reserve_ammo_label:
+		reserve_ammo_label.text = str(max(weapon.reserve_ammo, 0))
 
 func _update_damage_bar_visuals() -> void:
 	_set_damage_mesh_ratio(damage_bar_fill, _overhead_health_ratio)
