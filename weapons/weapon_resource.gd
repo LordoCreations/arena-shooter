@@ -25,6 +25,10 @@ var weapon_manager : WeaponManager
 
 # Weapon Stats
 @export var damage: float = 10.0
+@export var current_ammo: int = 12
+@export var magazine_capacity: int = 12
+@export var reserve_ammo: int = 36
+@export var max_reserve_ammo: int = 120
 @export var fire_rate_time: float = 0.2
 @export var recoil_power: Vector2 = Vector2(0.5, 0.05)
 @export var muzzle_flash_scene: PackedScene = preload("res://weapons/vfx/muzzle_flash.tscn")
@@ -36,6 +40,9 @@ var weapon_manager : WeaponManager
 @export var equip_sound : AudioStream
 
 # Weapon Logic
+var is_reloading := false
+var _reload_end_time_ms := 0
+
 var trigger_down := false :
 	set(v):
 		if trigger_down != v:
@@ -72,11 +79,60 @@ func on_equip():
 
 
 func on_unequip():
-	pass
+	is_reloading = false
+	_reload_end_time_ms = 0
+
+func on_process(_delta: float) -> void:
+	if not is_reloading:
+		return
+	if Time.get_ticks_msec() < _reload_end_time_ms:
+		return
+	reload()
+	is_reloading = false
+	_reload_end_time_ms = 0
+
+func can_fire_shot() -> bool:
+	return current_ammo > 0 and not is_reloading
+
+func get_amount_can_reload() -> int:
+	if magazine_capacity <= 0:
+		return 0
+	var wish_reload = max(magazine_capacity - current_ammo, 0)
+	return min(wish_reload, max(reserve_ammo, 0))
+
+func reload_pressed() -> void:
+	if not _manager_ready():
+		return
+	if is_reloading:
+		return
+	if get_amount_can_reload() <= 0:
+		return
+	var reload_duration := 0.0
+	if view_reload_anim != "":
+		reload_duration = weapon_manager.get_anim_length(view_reload_anim)
+		weapon_manager.play_anim(view_reload_anim)
+		weapon_manager.queue_anim(view_idle_anim)
+	weapon_manager.play_sound(reload_sound)
+	if reload_duration <= 0.0:
+		reload()
+		return
+	is_reloading = true
+	_reload_end_time_ms = Time.get_ticks_msec() + int(reload_duration * 1000.0)
+
+func reload() -> void:
+	var can_reload = get_amount_can_reload()
+	if can_reload <= 0:
+		return
+	current_ammo = min(magazine_capacity, current_ammo + can_reload)
+	reserve_ammo = clamp(reserve_ammo - can_reload, 0, max_reserve_ammo)
 
 func fire_shot():
 	if not _manager_ready():
 		return
+	if not can_fire_shot():
+		reload_pressed()
+		return
+	current_ammo -= 1
 	weapon_manager.play_anim(view_shoot_anim)
 	weapon_manager.play_sound(shoot_sound)
 	weapon_manager.queue_anim(view_idle_anim)

@@ -59,6 +59,14 @@ func play_anim(anim_id : String) -> void:
 	anim_player.seek(0.0)
 	anim_player.play(anim_id)
 
+func get_anim_length(anim_id: String) -> float:
+	if not current_view_model or not is_instance_valid(current_view_model):
+		return 0.0
+	var anim_player : AnimationPlayer = current_view_model.get_node_or_null("AnimationPlayer")
+	if not anim_player or not anim_player.has_animation(anim_id):
+		return 0.0
+	return anim_player.get_animation(anim_id).length
+
 func queue_anim(anim_id : String):
 	if not current_view_model or not is_instance_valid(current_view_model):
 		return
@@ -122,6 +130,11 @@ func set_trigger_pressed(pressed: bool) -> void:
 		return
 	current_weapon.trigger_down = pressed and allow_shoot
 
+func request_reload() -> void:
+	if not current_weapon:
+		return
+	current_weapon.reload_pressed()
+
 func _physics_process(_delta: float) -> void:
 	if not player or not is_instance_valid(player):
 		return
@@ -133,7 +146,16 @@ func _physics_process(_delta: float) -> void:
 		return
 	_try_fire()
 
+func _process(delta: float) -> void:
+	if current_weapon:
+		current_weapon.on_process(delta)
+
 func _try_fire() -> void:
+	if not current_weapon:
+		return
+	if not current_weapon.can_fire_shot():
+		current_weapon.reload_pressed()
+		return
 	if not fire_rate_timer.is_stopped():
 		return
 

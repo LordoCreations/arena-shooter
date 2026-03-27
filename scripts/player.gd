@@ -57,6 +57,7 @@ var username = ""
 @onready var hud = $SpringArm3D/Camera3D/HUD
 @onready var health_lag_bar = $SpringArm3D/Camera3D/HUD/MarginContainer/HealthLagBar
 @onready var health_bar = $SpringArm3D/Camera3D/HUD/MarginContainer/HealthBar
+@onready var ammo_label = $SpringArm3D/Camera3D/HUD/AmmoLabel
 @onready var hud_hit_flash = $SpringArm3D/Camera3D/HUD/HitFlash
 @onready var username_tag = $Username
 @onready var damage_bar_root = $DamageBarRoot
@@ -141,6 +142,9 @@ func _unhandled_input(event: InputEvent) -> void:
 		weapon_manager.set_trigger_pressed(false)
 		firing.emit(false)
 
+	if event.is_action_pressed("reload"):
+		weapon_manager.request_reload()
+
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
 		update_nameplate_visibility()
@@ -181,6 +185,7 @@ func _process(delta: float) -> void:
 
 	_update_hud_health_visuals()
 	_update_damage_bar_visuals()
+	_update_ammo_display()
 
 func get_move_speed() -> float:
 	return sprint_speed if is_sprinting else walk_speed;
@@ -332,6 +337,19 @@ func _update_hud_health_visuals() -> void:
 	hud_hit_flash.size = bar_rect.size
 	hud_hit_flash.modulate.a = 0.8 * _hud_hit_flash_strength
 
+func _update_ammo_display() -> void:
+	if not ammo_label:
+		return
+	if not is_multiplayer_authority():
+		ammo_label.text = ""
+		return
+	if not weapon_manager or not weapon_manager.current_weapon:
+		ammo_label.text = "--/--"
+		return
+
+	var weapon = weapon_manager.current_weapon
+	ammo_label.text = str(max(weapon.current_ammo, 0)) + "/" + str(max(weapon.magazine_capacity, 0))
+
 func _update_damage_bar_visuals() -> void:
 	_set_damage_mesh_ratio(damage_bar_fill, _overhead_health_ratio)
 	_set_damage_mesh_ratio(damage_bar_lag, _overhead_lag_ratio)
@@ -452,6 +470,7 @@ func _ready():
 		return
 	
 	hud.show()
+	_update_ammo_display()
 		
 	camera.current = true
 	floor_snap_length = 0.5
@@ -476,5 +495,6 @@ func spawn() -> void:
 	_hud_hit_flash_strength = 0.0
 	_set_damage_bar_ratio(1.0)
 	damage_bar_root.hide()
+	_update_ammo_display()
 	if is_multiplayer_authority():
 		_clear_enemy_damage_bar.rpc()
