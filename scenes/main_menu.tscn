@@ -8,6 +8,7 @@ script = ExtResource("1_2x5kc")
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
 [node name="MainMenu" type="PanelContainer" parent="CanvasLayer"]
+visible = false
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
@@ -29,39 +30,44 @@ theme_override_constants/separation = 15
 
 [node name="Label" type="Label" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
-theme_override_font_sizes/font_size = 32
+theme_override_font_sizes/font_size = 36
 text = "Arena Shooter (alpha)"
 horizontal_alignment = 1
 vertical_alignment = 1
 
 [node name="Username" type="LineEdit" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 placeholder_text = "Enter your Username"
 alignment = 1
 
 [node name="Address" type="LineEdit" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 placeholder_text = "Enter Local Address"
 alignment = 1
 
 [node name="JoinButton" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Join LAN"
 
 [node name="HostButton" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Host LAN"
 
 [node name="JoinSteam" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Use Steam"
 
 [node name="QuitGame" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Quit Game"
 
 [node name="SteamHUD" type="PanelContainer" parent="CanvasLayer"]
-visible = false
 anchors_preset = 8
 anchor_left = 0.5
 anchor_top = 0.5
@@ -87,10 +93,12 @@ layout_mode = 2
 
 [node name="HostP2PGame" type="Button" parent="CanvasLayer/SteamHUD/MarginContainer/Options"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "Host P2P Game"
 
 [node name="ListLobbies" type="Button" parent="CanvasLayer/SteamHUD/MarginContainer/Options"]
 layout_mode = 2
+theme_override_font_sizes/font_size = 24
 text = "List P2P Lobbies"
 
 [node name="Lobbies" type="ScrollContainer" parent="CanvasLayer/SteamHUD/MarginContainer/Options"]

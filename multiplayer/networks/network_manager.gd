@@ -76,3 +76,14 @@ func kick_member(member_id, id_type: String = "peer") -> void:
 func transfer_lobby_ownership(member_id, id_type: String = "peer") -> void:
 	if active_network and active_network.has_method("transfer_lobby_ownership"):
 		active_network.transfer_lobby_ownership(member_id, id_type)
+
+func shutdown_lobby(host_shutdown: bool = false) -> void:
+	if active_network and active_network.has_method("shutdown_lobby"):
+		active_network.shutdown_lobby(host_shutdown)
+	else:
+		if multiplayer.multiplayer_peer:
+			multiplayer.multiplayer_peer.close()
+		multiplayer.multiplayer_peer = null
+	if is_instance_valid(active_network):
+		active_network.queue_free()
+	active_network = null

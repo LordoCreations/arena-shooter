@@ -9,6 +9,7 @@ extends CharacterBody3D
 @export var sprint_speed: float = 12.0
 @export var acceleration: float = 30.0
 @export var friction: float = 100.0     # decel
+@export var air_resistance: float = 0.01
 @export var rotation_speed: float = 20.0
 
 # --- Direction Penaly Settings ---
@@ -24,19 +25,18 @@ var is_aiming: bool = false
 @export var min_jump_percent: float = 0.8    # Minimum jump height
 
 var floor_time: int = 0
-var last_active_time: int = 0
 var current_speed: float = 0.0
 
 # --- Equipment ---
+@onready var weapon_manager := $WeaponManager
 @onready var equipment := $EquipmentPivot
-@onready var active_gun = $EquipmentPivot/Hand/Gun
 
 signal firing(is_firing: bool)
 
 @export var ads_speed_mult: float = 0.6 # 60% speed while aiming
 
 # --- Health ---
-@export var max_health: float = 3.0
+@export var max_health: float = 100.0
 var health: float = max_health
 
 # --- Animations ---
@@ -55,8 +55,10 @@ var username = ""
 
 # --- HUD ---
 @onready var hud = $SpringArm3D/Camera3D/HUD
-@onready var health_lag_bar = $SpringArm3D/Camera3D/HUD/MarginContainer/HealthLagBar
-@onready var health_bar = $SpringArm3D/Camera3D/HUD/MarginContainer/HealthBar
+@onready var health_lag_bar = $SpringArm3D/Camera3D/HUD/HealthContainer/HealthLagBar
+@onready var health_bar = $SpringArm3D/Camera3D/HUD/HealthContainer/HealthBar
+@onready var health_text_label = $SpringArm3D/Camera3D/HUD/HealthContainer/HealthValueLabel
+@onready var ammo_label = $SpringArm3D/Camera3D/HUD/AmmoContainer/AmmoLabel
 @onready var hud_hit_flash = $SpringArm3D/Camera3D/HUD/HitFlash
 @onready var username_tag = $Username
 @onready var damage_bar_root = $DamageBarRoot
@@ -66,8 +68,8 @@ var username = ""
 @export var nameplate_visible_distance: float = 20.0
 @export var damage_bar_visible_seconds: float = 4.0
 @export var damage_lag_speed: float = 1.8
-@export var enemy_damage_lag_speed: float = 1.0
-@export var enemy_damage_lag_hold_seconds: float = 0.2
+@export var enemy_damage_lag_speed: float = 1.8
+@export var enemy_damage_lag_hold_seconds: float = 0.05
 @export var hit_flash_decay_speed: float = 3.6
 @export var regen_delay_seconds: float = 6.0
 @export var regen_percent_per_second: float = 0.03
@@ -89,6 +91,13 @@ var _overhead_flash_material: StandardMaterial3D
 
 const OVERHEAD_BAR_HALF_WIDTH := 0.6
 const ENEMY_BAR_COLOR := Color(0.86, 0.18, 0.18, 1.0)
+
+
+# Visibility
+const VIEW_MODEL_LAYER = 9
+const WORLD_MODEL_LAYER = 2
+@onready var viewModel = $SpringArm3D/Camera3D/ViewModel
+@onready var worldModel = $Character/Container/orange_astro/Armature/Skeleton3D/BoneAttachment3D/WorldModel
 
 func _enter_tree() -> void:
 	set_multiplayer_authority(str(name).to_int())
@@ -122,11 +131,20 @@ func calculate_jump_velocity() -> float:
 	
 	return (base_jump_velocity + speed_factor) * fatigue_factor
 
-func _unhandled_input(_event: InputEvent) -> void:
+func _unhandled_input(event: InputEvent) -> void:
 	if not is_multiplayer_authority(): return
-	if not MultiplayerManager.controls_enabled: return
-	if Input.is_action_just_released("shoot"):
+	if not MultiplayerManager.controls_enabled:
+		weapon_manager.set_trigger_pressed(false)
+		return
+
+	if event.is_action_pressed("shoot"):
+		weapon_manager.set_trigger_pressed(true)
+	elif event.is_action_released("shoot"):
+		weapon_manager.set_trigger_pressed(false)
 		firing.emit(false)
+
+	if event.is_action_pressed("reload"):
+		weapon_manager.request_reload()
 
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
@@ -144,11 +162,10 @@ func _physics_process(delta: float) -> void:
 		camera_arm.stop_aim() # Force camera back to hip
 	if not controls_enabled and is_aiming:
 		camera_arm.stop_aim()
+	if not controls_enabled:
+		weapon_manager.set_trigger_pressed(false)
 
 	move(delta, controls_enabled)
-
-	if controls_enabled and Input.is_action_pressed("shoot"):
-		shoot()
 
 	# Gun Look-At
 	var target_pos = camera.global_transform.origin - camera.global_transform.basis.z * 100.0
@@ -169,6 +186,7 @@ func _process(delta: float) -> void:
 
 	_update_hud_health_visuals()
 	_update_damage_bar_visuals()
+	_update_ammo_display()
 
 func get_move_speed() -> float:
 	return sprint_speed if is_sprinting else walk_speed;
@@ -206,15 +224,18 @@ func move(delta: float, allow_player_input: bool = true) -> void:
 	right.y = 0
 	var direction = (forward * input_dir.y + right * input_dir.x).normalized()
 
-	# Smoothed movement (Lerp Velocity)
+	# Smoothly accelerate the horizontal velocity vector to avoid instant direction snaps.
+	var horizontal_velocity = Vector2(velocity.x, velocity.z)
 	if direction:
-		current_speed = move_toward(current_speed, target_speed, acceleration * delta)
-		velocity.x = direction.x * current_speed
-		velocity.z = direction.z * current_speed
+		var target_horizontal_velocity = Vector2(direction.x, direction.z) * target_speed
+		horizontal_velocity = horizontal_velocity.move_toward(target_horizontal_velocity, acceleration * delta)
 	else:
-		current_speed = move_toward(current_speed, 0, friction * delta)
-		velocity.x = move_toward(velocity.x, 0, friction * delta)
-		velocity.z = move_toward(velocity.z, 0, friction * delta)
+		var decel = air_resistance if not is_on_floor() else friction
+		horizontal_velocity = horizontal_velocity.move_toward(Vector2.ZERO, decel * delta)
+
+	velocity.x = horizontal_velocity.x
+	velocity.z = horizontal_velocity.y
+	current_speed = horizontal_velocity.length()
 	
 	# 5. Handle Jumping
 
@@ -308,14 +329,34 @@ func _enemy_health_color_from_ratio(_ratio: float) -> Color:
 func _update_hud_health_visuals() -> void:
 	health_bar.value = 100.0 * _hud_health_ratio
 	health_lag_bar.value = 100.0 * _hud_lag_ratio
+	var health_color = _hud_health_color_from_ratio(_hud_health_ratio)
 	if _hud_fill_style:
-		_hud_fill_style.bg_color = _hud_health_color_from_ratio(_hud_health_ratio)
+		_hud_fill_style.bg_color = health_color
+
+	if health_text_label:
+		var current_health = int(round(clamp(health, 0.0, max_health)))
+		var max_health_int = int(round(max_health))
+		health_text_label.text = str(current_health) + "/" + str(max_health_int)
+		health_text_label.add_theme_color_override("font_color", health_color)
 
 	var bar_rect = health_bar.get_global_rect()
 	var hud_rect = hud.get_global_rect()
 	hud_hit_flash.position = bar_rect.position - hud_rect.position
 	hud_hit_flash.size = bar_rect.size
 	hud_hit_flash.modulate.a = 0.8 * _hud_hit_flash_strength
+
+func _update_ammo_display() -> void:
+	if not ammo_label:
+		return
+	if not is_multiplayer_authority():
+		ammo_label.text = ""
+		return
+	if not weapon_manager or not weapon_manager.current_weapon:
+		ammo_label.text = "--/--"
+		return
+
+	var weapon = weapon_manager.current_weapon
+	ammo_label.text = str(max(weapon.current_ammo, 0)) + "/" + str(max(weapon.magazine_capacity, 0))
 
 func _update_damage_bar_visuals() -> void:
 	_set_damage_mesh_ratio(damage_bar_fill, _overhead_health_ratio)
@@ -336,44 +377,32 @@ func _set_local_health_ratio(ratio: float) -> void:
 		_hud_lag_ratio = max(_hud_lag_ratio, _hud_health_ratio)
 	_hud_health_ratio = clamped_ratio
 
-func shoot() -> void:
-	if not active_gun.try_shoot(): return
-	
-	var kick = Vector2(active_gun.recoil_power.x, randf_range(-active_gun.recoil_power.y, active_gun.recoil_power.y))
-	camera_arm.apply_recoil(kick)
-	
-	fire_shot.rpc()
-	active_gun.play_fire_effects.rpc()
-	firing.emit(true)
-	
-	var bullet_cast = active_gun.bullet_cast
-	if bullet_cast.is_colliding():
-		var hit_obj = bullet_cast.get_collider()
-		var col_point = bullet_cast.get_collision_point()
-		var normal = bullet_cast.get_collision_normal()
-		
-		var bullet_dir = (col_point - bullet_cast.global_position).normalized()
-	
-		if hit_obj.has_method("hurt"):
-			hit_obj.hurt.rpc_id(hit_obj.get_multiplayer_authority(), 1.0)
-			rpc("sync_impact", "enemy", col_point, normal, bullet_dir)
-		else:
-			rpc("sync_impact", "terrain", col_point, normal, bullet_dir)
-			rpc("sync_impact", "decal", col_point, normal, bullet_dir)
-
-@rpc("any_peer", "call_local")
-func sync_impact(type: String, pos: Vector3, normal: Vector3, dir: Vector3):
-	ImpactManager.spawn_impact(type, pos, normal, dir)
+func update_view_and_world_model_masks():
+	if is_multiplayer_authority():
+		for child in %ViewModel.find_children("*", "VisualInstance3D", true, false):
+			child.set_layer_mask_value(1, false)
+			child.set_layer_mask_value(VIEW_MODEL_LAYER, true)
+			if child is GeometryInstance3D:
+				child.cast_shadow = false
+		for child in %WorldModel.find_children("*", "VisualInstance3D", true, false):
+			child.set_layer_mask_value(1, false)
+			child.set_layer_mask_value(WORLD_MODEL_LAYER, true)
+		camera.set_cull_mask_value(WORLD_MODEL_LAYER, true)
+		camera.set_cull_mask_value(VIEW_MODEL_LAYER, false)
+	else:
+		%ViewModel.hide()
+		%WorldModel.show()
 
 func _on_aim_toggled(aiming: bool) -> void:
 	is_aiming = aiming
-	if aiming: visuals.hide()
-	else: visuals.show()
-
-@rpc("call_local")
-func fire_shot() -> void:
-	last_active_time = Time.get_ticks_msec()
-
+	if aiming:
+		camera.set_cull_mask_value(WORLD_MODEL_LAYER, false)
+		camera.set_cull_mask_value(VIEW_MODEL_LAYER, true)
+		visuals.hide()
+	else:
+		camera.set_cull_mask_value(WORLD_MODEL_LAYER, true)
+		camera.set_cull_mask_value(VIEW_MODEL_LAYER, false)
+		visuals.show()
 @rpc("any_peer")
 func hurt(damage: float):
 	var attacker_peer_id = multiplayer.get_remote_sender_id()
@@ -408,6 +437,10 @@ func _clear_enemy_damage_bar() -> void:
 	
 
 func _ready():
+	update_view_and_world_model_masks()
+	weapon_manager.update_weapon_model()
+
+
 	if is_multiplayer_authority():
 		username = MultiplayerManager.player_username
 		username = username if username and len(username) > 0 else "Player " + str(player_id)
@@ -445,6 +478,7 @@ func _ready():
 		return
 	
 	hud.show()
+	_update_ammo_display()
 		
 	camera.current = true
 	floor_snap_length = 0.5
@@ -469,5 +503,6 @@ func spawn() -> void:
 	_hud_hit_flash_strength = 0.0
 	_set_damage_bar_ratio(1.0)
 	damage_bar_root.hide()
+	_update_ammo_display()
 	if is_multiplayer_authority():
 		_clear_enemy_damage_bar.rpc()

@@ -1,9 +1,10 @@
-[gd_scene load_steps=8 format=3 uid="uid://c3g4j2ygkydr7"]
+[gd_scene load_steps=9 format=3 uid="uid://c3g4j2ygkydr7"]
 
 [ext_resource type="Script" uid="uid://clhs6sawiwggj" path="res://scripts/world.gd" id="1_k0juu"]
 [ext_resource type="Script" uid="uid://di8hsbrc5je2w" path="res://multiplayer/networks/network_manager.gd" id="2_71j4m"]
 [ext_resource type="PackedScene" uid="uid://cllmeko3a5vn" path="res://scenes/environment.tscn" id="3_qfnet"]
 [ext_resource type="Script" uid="uid://dqw4rl22ubxv4" path="res://scripts/notifications.gd" id="4_i7141"]
+[ext_resource type="PackedScene" path="res://scenes/ui/in_game_menu.tscn" id="5_ui"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_fj7yv"]
 sky_horizon_color = Color(0.66224277, 0.6717428, 0.6867428, 1)
@@ -37,98 +38,7 @@ environment = SubResource("Environment_aqk2v")
 
 [node name="CanvasLayer" type="CanvasLayer" parent="."]
 
-[node name="PauseMenu" type="PanelContainer" parent="CanvasLayer"]
-visible = false
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-
-[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/PauseMenu"]
-layout_mode = 2
-theme_override_constants/margin_left = 15
-theme_override_constants/margin_top = 15
-theme_override_constants/margin_right = 15
-theme_override_constants/margin_bottom = 15
-
-[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/PauseMenu/MarginContainer"]
-layout_mode = 2
-theme_override_constants/separation = 15
-
-[node name="Label" type="Label" parent="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer"]
-layout_mode = 2
-text = "Game Menu"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="LobbyInfo" type="Label" parent="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer"]
-layout_mode = 2
-text = "Lobby Info: N/A"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="ReturnGame" type="Button" parent="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer"]
-layout_mode = 2
-text = "Return Game"
-
-[node name="MainMenu" type="Button" parent="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer"]
-layout_mode = 2
-text = "Main Menu"
-
-[node name="QuitGame" type="Button" parent="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer"]
-layout_mode = 2
-text = "Quit Game"
-
-[node name="LobbyControlsButton" type="Button" parent="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer"]
-layout_mode = 2
-text = "Lobby Controls"
-
-[node name="LobbyControls" type="PanelContainer" parent="CanvasLayer"]
-visible = false
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -150.0
-offset_top = -120.0
-offset_right = 150.0
-offset_bottom = 120.0
-grow_horizontal = 2
-grow_vertical = 2
-size_flags_vertical = 3
-
-[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/LobbyControls"]
-layout_mode = 2
-theme_override_constants/margin_left = 15
-theme_override_constants/margin_top = 15
-theme_override_constants/margin_right = 15
-theme_override_constants/margin_bottom = 15
-
-[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/LobbyControls/MarginContainer"]
-layout_mode = 2
-
-[node name="Label" type="Label" parent="CanvasLayer/LobbyControls/MarginContainer/VBoxContainer"]
-layout_mode = 2
-text = "Lobby Controls"
-horizontal_alignment = 1
-vertical_alignment = 1
-
-[node name="PlayerScroll" type="ScrollContainer" parent="CanvasLayer/LobbyControls/MarginContainer/VBoxContainer"]
-layout_mode = 2
-size_flags_vertical = 3
-
-[node name="PlayerList" type="VBoxContainer" parent="CanvasLayer/LobbyControls/MarginContainer/VBoxContainer/PlayerScroll"]
-layout_mode = 2
-size_flags_horizontal = 3
-size_flags_vertical = 3
-
-[node name="CloseLobbyControls" type="Button" parent="CanvasLayer/LobbyControls/MarginContainer/VBoxContainer"]
-layout_mode = 2
-text = "Close"
+[node name="InGameMenu" parent="CanvasLayer" instance=ExtResource("5_ui")]
 
 [node name="Notifications" type="PanelContainer" parent="CanvasLayer"]
 offset_right = 40.0
@@ -141,9 +51,10 @@ spawn_path = NodePath("../Players")
 [node name="Players" type="Node3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 24.271395, 0)
 
-[connection signal="pressed" from="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer/ReturnGame" to="." method="_on_return_game_pressed"]
-[connection signal="pressed" from="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer/MainMenu" to="." method="_on_main_menu_pressed"]
-[connection signal="pressed" from="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer/QuitGame" to="." method="_on_quit_game_pressed"]
-[connection signal="pressed" from="CanvasLayer/PauseMenu/MarginContainer/VBoxContainer/LobbyControlsButton" to="." method="_on_lobby_controls_pressed"]
-[connection signal="pressed" from="CanvasLayer/LobbyControls/MarginContainer/VBoxContainer/CloseLobbyControls" to="." method="_on_close_lobby_controls_pressed"]
+[connection signal="pressed" from="CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/ReturnGame" to="." method="_on_return_game_pressed"]
+[connection signal="pressed" from="CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/MainMenu" to="." method="_on_main_menu_pressed"]
+[connection signal="pressed" from="CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/QuitGame" to="." method="_on_quit_game_pressed"]
+[connection signal="pressed" from="CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/LobbyControlsButton" to="." method="_on_lobby_controls_pressed"]
+[connection signal="value_changed" from="CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/VolumeRow/VolumeSlider" to="." method="_on_volume_slider_value_changed"]
+[connection signal="pressed" from="CanvasLayer/InGameMenu/LobbyControls/MarginContainer/VBoxContainer/CloseLobbyControls" to="." method="_on_close_lobby_controls_pressed"]
 [connection signal="spawned" from="MultiplayerSpawner" to="." method="_on_multiplayer_spawner_spawned"]

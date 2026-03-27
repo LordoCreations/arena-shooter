@@ -1,0 +1,30 @@
+[gd_resource type="Resource" script_class="WeaponResource" load_steps=7 format=3 uid="uid://danie5kuoen4g"]
+
+[ext_resource type="Script" uid="uid://p2tgys828nkh" path="res://weapons/weapon_resource.gd" id="1_ckfx7"]
+[ext_resource type="AudioStream" uid="uid://pspltg1gti4s" path="res://weapons/pistol/unholster_pistol.mp3" id="1_fbyut"]
+[ext_resource type="AudioStream" uid="uid://bfakfv3egettq" path="res://weapons/pistol/pistol_reload.mp3" id="2_73cem"]
+[ext_resource type="PackedScene" uid="uid://cupogmlrh2i7m" path="res://weapons/vfx/muzzle_flash.tscn" id="2_f2tw8"]
+[ext_resource type="PackedScene" uid="uid://db7wmjudxqtww" path="res://weapons/pistol/pistol.glb" id="2_tsb7k"]
+[ext_resource type="AudioStream" uid="uid://bt2ewffut6qaw" path="res://weapons/pistol/shoot_pistol.mp3" id="4_f2tw8"]
+
+[resource]
+script = ExtResource("1_ckfx7")
+view_model = ExtResource("2_tsb7k")
+view_model_scale = Vector3(0.3, 0.3, 0.3)
+world_model = ExtResource("2_tsb7k")
+world_model_pos = Vector3(-0.3, 0, -0.05)
+world_model_rot = Vector3(3.142, 0, 0)
+world_model_scale = Vector3(0.3, 0.3, 0.3)
+view_idle_anim = "idle"
+view_equip_anim = "idle"
+view_shoot_anim = "shoot"
+view_reload_anim = "reload"
+damage = 40.0
+current_ammo = 6
+magazine_capacity = 6
+fire_rate_time = 0.4
+muzzle_flash_position = Vector3(0, 0.122, -0.6629)
+shoot_sound = ExtResource("4_f2tw8")
+reload_sound = ExtResource("2_73cem")
+equip_sound = ExtResource("1_fbyut")
+metadata/_custom_type_script = "uid://p2tgys828nkh"

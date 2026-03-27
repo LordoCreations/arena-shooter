@@ -1,4 +1,5 @@
 extends Node
+var popup_template_scene := preload("res://scenes/ui/menu_popup_template.tscn")
 
 # --- Menu ---
 @onready var main_menu = $CanvasLayer/MainMenu
@@ -8,6 +9,8 @@ extends Node
 # --- Steam ---
 @onready var steam_menu := $CanvasLayer/SteamHUD
 @onready var steam_lobbies := $CanvasLayer/SteamHUD/MarginContainer/Options/Lobbies/VBoxContainer
+
+var _steam_error_popup
 
 func _ready() -> void:
 	main_menu.show()
@@ -92,22 +95,33 @@ func _on_lobby_match_list(lobbies: Array):
 			var lobby_button: Button = Button.new()
 			lobby_button.set_text(lobby_name + " | " + lobby_mode)
 			lobby_button.set_size(Vector2(100, 30))
-			lobby_button.add_theme_font_size_override("font_size", 14)
+			lobby_button.add_theme_font_size_override("font_size", 24)
 			lobby_button.set_name("lobby_%s" % lobby)
 			lobby_button.alignment = HORIZONTAL_ALIGNMENT_FILL
 			lobby_button.connect("pressed", Callable(self, "join_lobby").bind(lobby))
 			steam_lobbies.add_child(lobby_button)
 
 func _show_steam_error_dialog() -> void:
-	var error_dialog = AcceptDialog.new()
-	error_dialog.title = "Steam Error"
-	error_dialog.dialog_text = "Failed to connect to Steam. Please make sure the Steam app is running on your computer and try again."
-	error_dialog.get_ok_button().text = "Back to Menu"
-	error_dialog.connect("confirmed", Callable(self, "_on_steam_error_dismissed"))
-	add_child(error_dialog)
-	error_dialog.popup_centered_ratio(0.6)
+	var popup = _ensure_steam_error_popup()
+	popup.open_popup("Steam Error", "Failed to connect to Steam. Please make sure the Steam app is running on your computer and try again.", "Back to Menu")
+
+func _ensure_steam_error_popup():
+	if is_instance_valid(_steam_error_popup):
+		return _steam_error_popup
+
+	_steam_error_popup = popup_template_scene.instantiate()
+	var popup_parent = get_node_or_null("CanvasLayer")
+	if popup_parent:
+		popup_parent.add_child(_steam_error_popup)
+	else:
+		add_child(_steam_error_popup)
+	if not _steam_error_popup.confirmed.is_connected(Callable(self, "_on_steam_error_dismissed")):
+		_steam_error_popup.confirmed.connect(Callable(self, "_on_steam_error_dismissed"))
+	return _steam_error_popup
 
 func _on_steam_error_dismissed() -> void:
+	if is_instance_valid(_steam_error_popup):
+		_steam_error_popup.close_popup()
 	main_menu.show()
 	steam_menu.hide()
 
