@@ -1,4 +1,4 @@
-[gd_scene load_steps=65 format=4 uid="uid://snk35r3rtgsf"]
+[gd_scene format=4 uid="uid://snk35r3rtgsf"]
 
 [ext_resource type="Script" uid="uid://c7qw8jpb8y373" path="res://scripts/player.gd" id="1_4flbx"]
 [ext_resource type="Script" uid="uid://ddgpytddr1n72" path="res://scripts/camera_spring_arm.gd" id="2_onrkg"]
@@ -1394,43 +1394,43 @@ transparency = 1
 shading_mode = 0
 albedo_color = Color(1, 0, 0, 0)
 
-[node name="Player" type="CharacterBody3D"]
+[node name="Player" type="CharacterBody3D" unique_id=4064563]
 collision_layer = 2
 script = ExtResource("1_4flbx")
 
-[node name="EquipmentPivot" type="Node3D" parent="."]
+[node name="EquipmentPivot" type="Node3D" parent="." unique_id=734429985]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
 
-[node name="Hand" type="Node3D" parent="EquipmentPivot"]
+[node name="Hand" type="Node3D" parent="EquipmentPivot" unique_id=1821230318]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 0, -0.6)
 script = ExtResource("3_sweqy")
 
-[node name="ViewModel" type="Node3D" parent="EquipmentPivot/Hand"]
+[node name="ViewModel" type="Node3D" parent="EquipmentPivot/Hand" unique_id=224024665]
 unique_name_in_owner = true
 transform = Transform3D(-4.371139e-08, 0, -1, 0, 1, 0, 1, 0, -4.371139e-08, 0, 0, 0)
 
-[node name="MuzzleFlashAnchor" type="Node3D" parent="EquipmentPivot/Hand"]
+[node name="MuzzleFlashAnchor" type="Node3D" parent="EquipmentPivot/Hand" unique_id=1195256522]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.122, -0.6629)
 
-[node name="BulletRayCast" type="RayCast3D" parent="EquipmentPivot/Hand"]
+[node name="BulletRayCast" type="RayCast3D" parent="EquipmentPivot/Hand" unique_id=103453913]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.122, 0)
 target_position = Vector3(0, 0, -999)
 collision_mask = 3
 
-[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+[node name="CollisionShape3D" type="CollisionShape3D" parent="." unique_id=480940852]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.05, 0)
 shape = SubResource("CapsuleShape3D_i3pqv")
 
-[node name="Character" type="Node3D" parent="."]
+[node name="Character" type="Node3D" parent="." unique_id=569467362]
 
-[node name="Container" type="Node3D" parent="Character"]
+[node name="Container" type="Node3D" parent="Character" unique_id=642017513]
 transform = Transform3D(-1.2, 0, -1.04907336e-07, 0, 1.2, 0, 1.04907336e-07, 0, -1.2, 0, 0, 0)
 
-[node name="orange_astro" type="Node3D" parent="Character/Container"]
+[node name="orange_astro" type="Node3D" parent="Character/Container" unique_id=79279301]
 
-[node name="Armature" type="Node3D" parent="Character/Container/orange_astro"]
+[node name="Armature" type="Node3D" parent="Character/Container/orange_astro" unique_id=703523895]
 
-[node name="Skeleton3D" type="Skeleton3D" parent="Character/Container/orange_astro/Armature"]
+[node name="Skeleton3D" type="Skeleton3D" parent="Character/Container/orange_astro/Armature" unique_id=2135185920]
 bones/0/name = "Torso"
 bones/0/parent = -1
 bones/0/rest = Transform3D(1, 1.2101433e-14, 2.3841872e-07, -2.5859594e-09, 0.9999413, 0.010846245, -2.3840468e-07, -0.010846245, 0.9999413, 0, 0.661532, 0.015536642)
@@ -1551,44 +1551,42 @@ bones/16/position = Vector3(3.678724e-08, 0.28680903, 1.9557774e-08)
 bones/16/rotation = Quaternion(0.0899458, -0.20800109, 0.97031105, -0.0845092)
 bones/16/scale = Vector3(0.99999905, 0.9999998, 1)
 
-[node name="Mesh_0" type="MeshInstance3D" parent="Character/Container/orange_astro/Armature/Skeleton3D"]
+[node name="Mesh_0" type="MeshInstance3D" parent="Character/Container/orange_astro/Armature/Skeleton3D" unique_id=983562373]
 mesh = SubResource("ArrayMesh_nppmb")
 skin = SubResource("Skin_limqm")
 
-[node name="BoneAttachment3D" type="BoneAttachment3D" parent="Character/Container/orange_astro/Armature/Skeleton3D"]
+[node name="BoneAttachment3D" type="BoneAttachment3D" parent="Character/Container/orange_astro/Armature/Skeleton3D" unique_id=2092865147]
 transform = Transform3D(0.9999999, 1.7508864e-07, 1.2929377e-08, 3.5433914e-09, -1.2130477e-07, 1, 1.3411045e-07, -0.9999999, -1.4121179e-07, -0.68810195, 1.0934024, 0.018155864)
 bone_name = "LowerArm.R_leaf"
 bone_idx = 12
 
-[node name="WorldModel" type="Node3D" parent="Character/Container/orange_astro/Armature/Skeleton3D/BoneAttachment3D"]
+[node name="WorldModel" type="Node3D" parent="Character/Container/orange_astro/Armature/Skeleton3D/BoneAttachment3D" unique_id=517270587]
 unique_name_in_owner = true
 
-[node name="AnimationPlayer" type="AnimationPlayer" parent="Character/Container/orange_astro"]
-libraries = {
-&"": SubResource("AnimationLibrary_u61od")
-}
+[node name="AnimationPlayer" type="AnimationPlayer" parent="Character/Container/orange_astro" unique_id=1176494528]
+libraries/ = SubResource("AnimationLibrary_u61od")
 
-[node name="AnimationTree" type="AnimationTree" parent="Character/Container"]
+[node name="AnimationTree" type="AnimationTree" parent="Character/Container" unique_id=5541055]
 root_node = NodePath("../orange_astro")
 tree_root = SubResource("AnimationNodeStateMachine_d2wvv")
 anim_player = NodePath("../orange_astro/AnimationPlayer")
 parameters/RunBlendSpace2D/blend_position = Vector2(0, 0)
 parameters/WalkBlendSpace2D/blend_position = Vector2(0, 0)
 
-[node name="SpringArm3D" type="SpringArm3D" parent="."]
+[node name="SpringArm3D" type="SpringArm3D" parent="." unique_id=1184022281]
 shape = SubResource("SphereShape3D_i3pqv")
 spring_length = 3.0
 margin = 0.1
 script = ExtResource("2_onrkg")
 
-[node name="Camera3D" type="Camera3D" parent="SpringArm3D"]
+[node name="Camera3D" type="Camera3D" parent="SpringArm3D" unique_id=927081156]
 cull_mask = 1048573
 
-[node name="Convergence" type="RayCast3D" parent="SpringArm3D/Camera3D"]
+[node name="Convergence" type="RayCast3D" parent="SpringArm3D/Camera3D" unique_id=465105495]
 target_position = Vector3(0, 0, -999)
 collision_mask = 3
 
-[node name="Crosshair" type="Control" parent="SpringArm3D/Camera3D"]
+[node name="Crosshair" type="Control" parent="SpringArm3D/Camera3D" unique_id=2131996488]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -1598,7 +1596,7 @@ grow_vertical = 2
 mouse_filter = 1
 script = ExtResource("7_1jxqw")
 
-[node name="Center" type="Control" parent="SpringArm3D/Camera3D/Crosshair"]
+[node name="Center" type="Control" parent="SpringArm3D/Camera3D/Crosshair" unique_id=1107331684]
 layout_mode = 1
 anchors_preset = 8
 anchor_left = 0.5
@@ -1608,36 +1606,36 @@ anchor_bottom = 0.5
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="Dot" type="Line2D" parent="SpringArm3D/Camera3D/Crosshair/Center"]
+[node name="Dot" type="Line2D" parent="SpringArm3D/Camera3D/Crosshair/Center" unique_id=1112546303]
 points = PackedVector2Array(0.001, 0, 0, 0)
 width = 3.5
 begin_cap_mode = 2
 end_cap_mode = 2
 
-[node name="Right" type="Line2D" parent="SpringArm3D/Camera3D/Crosshair/Center"]
+[node name="Right" type="Line2D" parent="SpringArm3D/Camera3D/Crosshair/Center" unique_id=294976651]
 position = Vector2(10, 0)
 points = PackedVector2Array(10, 0, 0, 0)
 width = 2.0
 
-[node name="Down" type="Line2D" parent="SpringArm3D/Camera3D/Crosshair/Center"]
+[node name="Down" type="Line2D" parent="SpringArm3D/Camera3D/Crosshair/Center" unique_id=1106932247]
 position = Vector2(0, 10)
 rotation = 1.5707701
 points = PackedVector2Array(10, 0, 0, 0)
 width = 2.0
 
-[node name="Up" type="Line2D" parent="SpringArm3D/Camera3D/Crosshair/Center"]
+[node name="Up" type="Line2D" parent="SpringArm3D/Camera3D/Crosshair/Center" unique_id=1193656860]
 position = Vector2(0, -10)
 rotation = -1.5707964
 points = PackedVector2Array(10, 0, 0, 0)
 width = 2.0
 
-[node name="Left" type="Line2D" parent="SpringArm3D/Camera3D/Crosshair/Center"]
+[node name="Left" type="Line2D" parent="SpringArm3D/Camera3D/Crosshair/Center" unique_id=404373929]
 position = Vector2(-10, 0)
 rotation = -3.14206
 points = PackedVector2Array(10, 0, 0, 0)
 width = 2.0
 
-[node name="HUD" type="Control" parent="SpringArm3D/Camera3D"]
+[node name="HUD" type="Control" parent="SpringArm3D/Camera3D" unique_id=1033262008]
 visible = false
 layout_mode = 3
 anchors_preset = 15
@@ -1647,7 +1645,7 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="HealthContainer" type="Control" parent="SpringArm3D/Camera3D/HUD"]
+[node name="HealthContainer" type="Control" parent="SpringArm3D/Camera3D/HUD" unique_id=1804193294]
 layout_mode = 1
 anchors_preset = 2
 anchor_top = 1.0
@@ -1659,7 +1657,7 @@ offset_bottom = -16.0
 grow_vertical = 0
 mouse_filter = 2
 
-[node name="HealthLagBar" type="ProgressBar" parent="SpringArm3D/Camera3D/HUD/HealthContainer"]
+[node name="HealthLagBar" type="ProgressBar" parent="SpringArm3D/Camera3D/HUD/HealthContainer" unique_id=124047227]
 custom_minimum_size = Vector2(200, 20)
 layout_mode = 1
 offset_left = 109.0
@@ -1674,7 +1672,7 @@ value = 100.0
 rounded = true
 show_percentage = false
 
-[node name="HealthBar" type="ProgressBar" parent="SpringArm3D/Camera3D/HUD/HealthContainer"]
+[node name="HealthBar" type="ProgressBar" parent="SpringArm3D/Camera3D/HUD/HealthContainer" unique_id=1273217929]
 custom_minimum_size = Vector2(200, 20)
 layout_mode = 1
 offset_left = 109.0
@@ -1688,7 +1686,7 @@ value = 100.0
 rounded = true
 show_percentage = false
 
-[node name="HealthValueLabel" type="Label" parent="SpringArm3D/Camera3D/HUD/HealthContainer"]
+[node name="HealthValueLabel" type="Label" parent="SpringArm3D/Camera3D/HUD/HealthContainer" unique_id=1538227638]
 layout_mode = 1
 offset_left = 5.0
 offset_top = -84.0
@@ -1701,7 +1699,7 @@ theme_override_font_sizes/font_size = 48
 text = "100/100"
 vertical_alignment = 2
 
-[node name="HealthIcon" type="TextureRect" parent="SpringArm3D/Camera3D/HUD/HealthContainer"]
+[node name="HealthIcon" type="TextureRect" parent="SpringArm3D/Camera3D/HUD/HealthContainer" unique_id=677054008]
 layout_mode = 1
 offset_left = 12.0
 offset_top = -6.0
@@ -1712,7 +1710,7 @@ texture = ExtResource("8_01u6a")
 expand_mode = 5
 stretch_mode = 4
 
-[node name="HitFlash" type="Panel" parent="SpringArm3D/Camera3D/HUD"]
+[node name="HitFlash" type="Panel" parent="SpringArm3D/Camera3D/HUD" unique_id=238687537]
 modulate = Color(1, 1, 1, 0)
 layout_mode = 1
 anchors_preset = 8
@@ -1729,7 +1727,7 @@ grow_vertical = 2
 mouse_filter = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_hit_flash")
 
-[node name="AmmoContainer" type="Control" parent="SpringArm3D/Camera3D/HUD"]
+[node name="AmmoContainer" type="Control" parent="SpringArm3D/Camera3D/HUD" unique_id=896022474]
 layout_mode = 1
 anchors_preset = 3
 anchor_left = 1.0
@@ -1744,7 +1742,7 @@ grow_horizontal = 0
 grow_vertical = 0
 mouse_filter = 2
 
-[node name="AmmoLabel" type="Label" parent="SpringArm3D/Camera3D/HUD/AmmoContainer"]
+[node name="AmmoLabel" type="Label" parent="SpringArm3D/Camera3D/HUD/AmmoContainer" unique_id=2035165716]
 layout_mode = 1
 anchors_preset = -1
 anchor_left = 0.388
@@ -1761,7 +1759,7 @@ text = "12/12"
 horizontal_alignment = 2
 vertical_alignment = 2
 
-[node name="ReserveAmmoLabel" type="Label" parent="SpringArm3D/Camera3D/HUD/AmmoContainer"]
+[node name="ReserveAmmoLabel" type="Label" parent="SpringArm3D/Camera3D/HUD/AmmoContainer" unique_id=2071623686]
 layout_mode = 1
 offset_left = 23.0
 offset_top = -110.0
@@ -1775,7 +1773,7 @@ text = "36"
 horizontal_alignment = 2
 vertical_alignment = 2
 
-[node name="AmmoIcon" type="TextureRect" parent="SpringArm3D/Camera3D/HUD/AmmoContainer"]
+[node name="AmmoIcon" type="TextureRect" parent="SpringArm3D/Camera3D/HUD/AmmoContainer" unique_id=738178405]
 layout_mode = 1
 offset_left = -126.0
 offset_top = -39.0
@@ -1786,38 +1784,38 @@ texture = ExtResource("9_xj8yf")
 expand_mode = 5
 stretch_mode = 4
 
-[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="."]
+[node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=1451314738]
 replication_config = SubResource("SceneReplicationConfig_2hs0m")
 
-[node name="Username" type="Label3D" parent="."]
+[node name="Username" type="Label3D" parent="." unique_id=1355981661]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
 billboard = 2
 text = "Player
 "
 font_size = 36
 
-[node name="DamageBarRoot" type="Node3D" parent="."]
+[node name="DamageBarRoot" type="Node3D" parent="." unique_id=712763105]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.3, 0)
 visible = false
 
-[node name="Background" type="MeshInstance3D" parent="DamageBarRoot"]
+[node name="Background" type="MeshInstance3D" parent="DamageBarRoot" unique_id=550243178]
 material_override = SubResource("StandardMaterial3D_damage_bar_bg")
 mesh = SubResource("QuadMesh_damage_bar")
 
-[node name="Fill" type="MeshInstance3D" parent="DamageBarRoot"]
+[node name="Fill" type="MeshInstance3D" parent="DamageBarRoot" unique_id=200173934]
 material_override = SubResource("StandardMaterial3D_damage_bar_fill")
 mesh = SubResource("QuadMesh_damage_bar")
 
-[node name="DamageLag" type="MeshInstance3D" parent="DamageBarRoot"]
+[node name="DamageLag" type="MeshInstance3D" parent="DamageBarRoot" unique_id=1777914083]
 material_override = SubResource("StandardMaterial3D_damage_bar_lag")
 mesh = SubResource("QuadMesh_damage_bar")
 
-[node name="HitFlash" type="MeshInstance3D" parent="DamageBarRoot"]
+[node name="HitFlash" type="MeshInstance3D" parent="DamageBarRoot" unique_id=900510224]
 transform = Transform3D(1.12, 0, 0, 0, 1.4, 0, 0, 0, 1, 0, 0, -0.001)
 material_override = SubResource("StandardMaterial3D_damage_bar_flash")
 mesh = SubResource("QuadMesh_damage_bar")
 
-[node name="WeaponManager" parent="." node_paths=PackedStringArray("view_model_container", "world_model_container") instance=ExtResource("3_ur7pv")]
+[node name="WeaponManager" parent="." unique_id=1393112798 node_paths=PackedStringArray("view_model_container", "world_model_container") instance=ExtResource("3_ur7pv")]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.6, 1, -0.6)
 current_weapon = ExtResource("3_y4r1p")
 view_model_container = NodePath("../EquipmentPivot/Hand/ViewModel")

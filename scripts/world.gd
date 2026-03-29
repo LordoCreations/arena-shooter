@@ -9,7 +9,7 @@ var popup_template_scene := preload("res://scenes/ui/menu_popup_template.tscn")
 @export var gun_boxes_per_cycle: int = 2
 @export var max_active_ammo_boxes: int = 10
 @export var max_active_gun_boxes: int = 6
-@export var loot_spawn_radius: float = 45.0
+@export var loot_spawn_area_size_meters: Vector2 = Vector2(25.0, 25.0)
 @export var loot_drop_height: float = 8.0
 @export var loot_ground_probe_height: float = 120.0
 @export var loot_ground_probe_depth: float = 260.0
@@ -42,6 +42,7 @@ const LOOT_TYPE_GUN := 1
 func _ready() -> void:
 	pause_menu.hide()
 	lobby_controls_panel.hide()
+	_wire_in_game_menu_signals()
 	_sync_volume_slider_from_master()
 	_setup_loot_spawning()
 	if not multiplayer.peer_connected.is_connected(_on_peer_connected_sync_loot):
@@ -49,6 +50,29 @@ func _ready() -> void:
 	_start_pending_network()
 	_update_lobby_info()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+
+func _wire_in_game_menu_signals() -> void:
+	var return_game_button := get_node_or_null("CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/ReturnGame") as Button
+	if return_game_button and not return_game_button.pressed.is_connected(_on_return_game_pressed):
+		return_game_button.pressed.connect(_on_return_game_pressed)
+
+	var main_menu_button := get_node_or_null("CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/MainMenu") as Button
+	if main_menu_button and not main_menu_button.pressed.is_connected(_on_main_menu_pressed):
+		main_menu_button.pressed.connect(_on_main_menu_pressed)
+
+	var quit_game_button := get_node_or_null("CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/QuitGame") as Button
+	if quit_game_button and not quit_game_button.pressed.is_connected(_on_quit_game_pressed):
+		quit_game_button.pressed.connect(_on_quit_game_pressed)
+
+	if lobby_controls_button and not lobby_controls_button.pressed.is_connected(_on_lobby_controls_pressed):
+		lobby_controls_button.pressed.connect(_on_lobby_controls_pressed)
+
+	var close_lobby_controls_button := get_node_or_null("CanvasLayer/InGameMenu/LobbyControls/MarginContainer/VBoxContainer/CloseLobbyControls") as Button
+	if close_lobby_controls_button and not close_lobby_controls_button.pressed.is_connected(_on_close_lobby_controls_pressed):
+		close_lobby_controls_button.pressed.connect(_on_close_lobby_controls_pressed)
+
+	if volume_slider and not volume_slider.value_changed.is_connected(_on_volume_slider_value_changed):
+		volume_slider.value_changed.connect(_on_volume_slider_value_changed)
 
 func _setup_loot_spawning() -> void:
 	if loot_root == null:
@@ -144,6 +168,8 @@ func _on_peer_connected_sync_loot(peer_id: int) -> void:
 			continue
 
 		var body := loot_node as Node3D
+		if not body.is_inside_tree():
+			continue
 		var spawn_data: Dictionary = _loot_spawn_data.get(loot_id, {})
 		var loot_type: int = int(spawn_data.get("loot_type", LOOT_TYPE_AMMO))
 		var authority_peer_id: int = int(spawn_data.get("authority_peer_id", multiplayer.get_unique_id()))
@@ -152,14 +178,14 @@ func _on_peer_connected_sync_loot(peer_id: int) -> void:
 
 func _find_random_loot_spawn_position() -> Vector3:
 	var center: Vector3 = MultiplayerManager.respawn_point
+	var half_width: float = max(loot_spawn_area_size_meters.x * 0.5, 0.5)
+	var half_depth: float = max(loot_spawn_area_size_meters.y * 0.5, 0.5)
 	var world_3d: World3D = get_viewport().world_3d
 	if world_3d == null:
 		return center + Vector3(0.0, loot_drop_height, 0.0)
 	var space_state: PhysicsDirectSpaceState3D = world_3d.direct_space_state
 	for _attempt in range(18):
-		var offset := Vector2(randf_range(-loot_spawn_radius, loot_spawn_radius), randf_range(-loot_spawn_radius, loot_spawn_radius))
-		if offset.length() > loot_spawn_radius:
-			offset = offset.normalized() * randf_range(0.0, loot_spawn_radius)
+		var offset := Vector2(randf_range(-half_width, half_width), randf_range(-half_depth, half_depth))
 		var ray_start := center + Vector3(offset.x, loot_ground_probe_height, offset.y)
 		var ray_end := ray_start - Vector3.UP * loot_ground_probe_depth
 		var query := PhysicsRayQueryParameters3D.create(ray_start, ray_end)
@@ -168,7 +194,7 @@ func _find_random_loot_spawn_position() -> Vector3:
 			var hit_position: Vector3 = hit["position"]
 			return hit_position + Vector3.UP * loot_drop_height
 
-	return center + Vector3(randf_range(-loot_spawn_radius, loot_spawn_radius), loot_drop_height, randf_range(-loot_spawn_radius, loot_spawn_radius))
+	return center + Vector3(randf_range(-half_width, half_width), loot_drop_height, randf_range(-half_depth, half_depth))
 
 @rpc("authority", "call_local", "reliable")
 func _spawn_loot_box(loot_id: int, loot_type: int, spawn_position: Vector3, yaw: float, authority_peer_id: int, weapon_path: String = "") -> void:
@@ -190,9 +216,9 @@ func _spawn_loot_box(loot_id: int, loot_type: int, spawn_position: Vector3, yaw:
 
 	var body := loot_node as Node3D
 	body.name = "LootBox_%s" % loot_id
+	loot_root.add_child(body, true)
 	body.global_position = spawn_position
 	body.rotation.y = yaw
-	loot_root.add_child(body, true)
 
 	if body.has_method("setup_loot_box"):
 		body.call("setup_loot_box", loot_id, authority_peer_id)

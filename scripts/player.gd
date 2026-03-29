@@ -78,15 +78,11 @@ var username = ""
 
 var _loot_prompt_label: Label
 const LOOT_INTERACT_DISTANCE := 2.4
-const LOOT_PUSH_DISTANCE := 3.2
-const LOOT_PLAYER_PUSH_SCALE := 4.0
 @export var interact_hold_duration_seconds: float = 0.5
 
 var _interact_hold_progress: float = 0.0
 var _interact_hold_target: Node = null
 var _is_interact_holding: bool = false
-var _next_loot_push_time_ms: int = 0
-
 var _damage_bar_visible_until_ms: int = 0
 var _last_damage_time_ms: int = 0
 var _hud_health_ratio: float = 1.0
@@ -109,8 +105,8 @@ const ENEMY_BAR_COLOR := Color(0.86, 0.18, 0.18, 1.0)
 # Visibility
 const VIEW_MODEL_LAYER = 9
 const WORLD_MODEL_LAYER = 2
-@onready var viewModel = $SpringArm3D/Camera3D/ViewModel
-@onready var worldModel = $Character/Container/orange_astro/Armature/Skeleton3D/BoneAttachment3D/WorldModel
+@onready var viewModel = %ViewModel
+@onready var worldModel = %WorldModel
 
 func _enter_tree() -> void:
 	set_multiplayer_authority(str(name).to_int())
@@ -408,38 +404,9 @@ func move(delta: float, allow_player_input: bool = true) -> void:
 	# Visual Rotation and Animation
 	handle_visuals(delta)
 	move_and_slide()
-	_handle_loot_push_collisions()
 
 func _handle_loot_push_collisions() -> void:
-	if not is_multiplayer_authority():
-		return
-	if not MultiplayerManager.controls_enabled:
-		return
-	if Time.get_ticks_msec() < _next_loot_push_time_ms:
-		return
-
-	var horizontal_speed := Vector2(velocity.x, velocity.z).length()
-	if horizontal_speed <= 0.2:
-		return
-
-	var collider_node := _find_nearby_loot_box(true, LOOT_PUSH_DISTANCE)
-	if collider_node == null or not (collider_node is Node3D):
-		return
-
-	var push_direction := Vector3(velocity.x, 0.0, velocity.z)
-	if push_direction.is_zero_approx():
-		return
-
-	var strength_scale: float = clamp(horizontal_speed / LOOT_PLAYER_PUSH_SCALE, 0.25, 2.5)
-	var authority_id := collider_node.get_multiplayer_authority()
-	var hit_position := (collider_node as Node3D).global_position + Vector3.UP * 0.2
-	var max_push_speed: float = horizontal_speed
-	_next_loot_push_time_ms = Time.get_ticks_msec() + 55
-
-	if authority_id == multiplayer.get_unique_id() and collider_node.has_method("apply_player_push"):
-		collider_node.call("apply_player_push", hit_position, push_direction, strength_scale, max_push_speed)
-	elif authority_id > 0:
-		collider_node.rpc_id(authority_id, "request_player_push", hit_position, push_direction, strength_scale, max_push_speed)
+	return
 
 func handle_visuals(delta: float) -> void:
 	var camera_yaw = camera_arm.rotation.y

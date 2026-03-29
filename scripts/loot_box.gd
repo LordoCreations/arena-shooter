@@ -192,32 +192,8 @@ func apply_bullet_impulse(hit_position: Vector3, bullet_direction: Vector3, stre
 	var impulse: Vector3 = bullet_direction.normalized() * (impulse_strength / max(mass, 0.001))
 	apply_impulse(impulse, hit_position - global_position)
 
-func apply_player_push(hit_position: Vector3, push_direction: Vector3, strength_scale: float = 1.0, max_horizontal_speed: float = -1.0) -> void:
-	if not pushable or freeze:
-		return
-	if push_direction.is_zero_approx():
-		return
-	var impulse_strength: float = player_push_impulse_strength * max(strength_scale, 0.0)
-	if impulse_strength <= 0.0:
-		return
-	var impulse: Vector3 = push_direction.normalized() * (impulse_strength / max(mass, 0.001))
-	apply_impulse(impulse, hit_position - global_position)
-
-	if max_horizontal_speed > 0.0:
-		var horizontal_velocity := Vector2(linear_velocity.x, linear_velocity.z)
-		if horizontal_velocity.length() > max_horizontal_speed:
-			horizontal_velocity = horizontal_velocity.normalized() * max_horizontal_speed
-			linear_velocity.x = horizontal_velocity.x
-			linear_velocity.z = horizontal_velocity.y
-
 @rpc("any_peer", "call_remote", "unreliable")
 func request_bullet_impulse(hit_position: Vector3, bullet_direction: Vector3, strength_scale: float = 1.0) -> void:
 	if not _is_host_authority():
 		return
 	apply_bullet_impulse(hit_position, bullet_direction, strength_scale)
-
-@rpc("any_peer", "call_remote", "unreliable")
-func request_player_push(hit_position: Vector3, push_direction: Vector3, strength_scale: float = 1.0, max_horizontal_speed: float = -1.0) -> void:
-	if not _is_host_authority():
-		return
-	apply_player_push(hit_position, push_direction, strength_scale, max_horizontal_speed)
