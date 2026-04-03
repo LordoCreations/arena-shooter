@@ -68,17 +68,13 @@ theme_override_font_sizes/font_size = 24
 text = "Quit Game"
 
 [node name="SteamHUD" type="PanelContainer" parent="CanvasLayer"]
-anchors_preset = 8
-anchor_left = 0.5
-anchor_top = 0.5
-anchor_right = 0.5
-anchor_bottom = 0.5
-offset_left = -81.5
-offset_top = -50.0
-offset_right = 81.5
-offset_bottom = 50.0
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
 
 [node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/SteamHUD"]
@@ -90,25 +86,38 @@ theme_override_constants/margin_bottom = 15
 
 [node name="Options" type="VBoxContainer" parent="CanvasLayer/SteamHUD/MarginContainer"]
 layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 12
 
 [node name="HostP2PGame" type="Button" parent="CanvasLayer/SteamHUD/MarginContainer/Options"]
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 24
 text = "Host P2P Game"
 
 [node name="ListLobbies" type="Button" parent="CanvasLayer/SteamHUD/MarginContainer/Options"]
 layout_mode = 2
+size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 24
 text = "List P2P Lobbies"
 
 [node name="Lobbies" type="ScrollContainer" parent="CanvasLayer/SteamHUD/MarginContainer/Options"]
 layout_mode = 2
+size_flags_horizontal = 3
 size_flags_vertical = 3
+custom_minimum_size = Vector2(0, 360)
 
 [node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/SteamHUD/MarginContainer/Options/Lobbies"]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
+
+[node name="BackToMenu" type="Button" parent="CanvasLayer/SteamHUD/MarginContainer/Options"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "Back to Main Menu"
 
 [connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/JoinButton" to="." method="_on_join_button_pressed"]
 [connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/HostButton" to="." method="_on_host_button_pressed"]
@@ -116,3 +125,4 @@ size_flags_vertical = 3
 [connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/QuitGame" to="." method="_on_quit_game_pressed"]
 [connection signal="pressed" from="CanvasLayer/SteamHUD/MarginContainer/Options/HostP2PGame" to="." method="_on_host_p_2p_game_pressed"]
 [connection signal="pressed" from="CanvasLayer/SteamHUD/MarginContainer/Options/ListLobbies" to="." method="_on_list_lobbies_pressed"]
+[connection signal="pressed" from="CanvasLayer/SteamHUD/MarginContainer/Options/BackToMenu" to="." method="_on_steam_back_pressed"]

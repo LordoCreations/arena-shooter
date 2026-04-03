@@ -25,6 +25,14 @@ func _ready() -> void:
 	steam_menu.hide()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 
+func _show_steam_menu() -> void:
+	main_menu.hide()
+	steam_menu.show()
+
+func _show_main_menu() -> void:
+	steam_menu.hide()
+	main_menu.show()
+
 func _connect_lobby_signals() -> void:
 	var match_list_signal = Steam.lobby_match_list
 	if not match_list_signal.is_connected(Callable(self, "_on_lobby_match_list")):
@@ -69,16 +77,19 @@ func join_lobby(lobby_id = 0) -> void:
 	_start_game()
 
 func _on_join_steam_pressed() -> void:
-	main_menu.hide()
-	steam_menu.show()
+	_show_steam_menu()
 	MultiplayerManager.pending_network_type = MultiplayerManager.NETWORK_TYPE.STEAM
 	if not SteamManager.initialize_steam():
-		main_menu.show()
-		steam_menu.hide()
+		_show_main_menu()
 		_show_steam_error_dialog()
 		return
 	_connect_lobby_signals()
 	_on_list_lobbies_pressed()
+
+func _on_steam_back_pressed() -> void:
+	_clear_lobby_buttons()
+	_visible_lobbies.clear()
+	_show_main_menu()
 
 func _on_list_lobbies_pressed() -> void:
 	if MultiplayerManager.pending_network_type != MultiplayerManager.NETWORK_TYPE.STEAM:
@@ -112,15 +123,18 @@ func _on_lobby_match_list(lobbies: Array, _lobby_count: int = -1) -> void:
 		_request_lobby_list(true)
 		return
 
-	_visible_lobbies = lobbies.duplicate()
-	for lobby_id in _visible_lobbies:
-		Steam.requestLobbyData(int(lobby_id))
+	_visible_lobbies.clear()
+	for lobby_id in lobbies:
+		var parsed_lobby_id := int(lobby_id)
+		_visible_lobbies.append(parsed_lobby_id)
+		Steam.requestLobbyData(parsed_lobby_id)
 	_render_lobby_list()
 
 func _on_lobby_data_update(success: int, lobby_id: int, _member_id: int) -> void:
 	if success == 0:
 		return
-	if _visible_lobbies.has(lobby_id):
+	var parsed_lobby_id := int(lobby_id)
+	if _visible_lobbies.has(parsed_lobby_id):
 		_render_lobby_list()
 
 func _render_lobby_list() -> void:
@@ -141,18 +155,32 @@ func _create_lobby_button(lobby_id: int) -> Button:
 	var lobby_name: String = Steam.getLobbyData(lobby_id, LOBBY_NAME_KEY)
 	var lobby_mode: String = Steam.getLobbyData(lobby_id, LOBBY_MODE_KEY)
 	var member_count: int = Steam.getNumLobbyMembers(lobby_id)
+	var owner_id: int = int(Steam.getLobbyOwner(lobby_id))
+	var owner_name := ""
+	if owner_id != 0 and Steam.has_method("getFriendPersonaName"):
+		owner_name = Steam.getFriendPersonaName(owner_id)
 
 	if lobby_name == "":
-		lobby_name = "Lobby %s" % lobby_id
+		if owner_name != "":
+			lobby_name = "%s's Lobby" % owner_name
+		else:
+			lobby_name = "Arena Shooter Lobby"
 	if lobby_mode == "":
-		lobby_mode = "Unknown"
+		lobby_mode = "Co-op"
+
+	var lobby_summary := "%s | %s | %s player(s)" % [lobby_name, lobby_mode, member_count]
+	if owner_name != "":
+		lobby_summary = "%s | Host: %s" % [lobby_summary, owner_name]
 
 	var lobby_button: Button = Button.new()
-	lobby_button.set_text("%s | %s | %s player(s)" % [lobby_name, lobby_mode, member_count])
-	lobby_button.set_size(Vector2(100, 30))
-	lobby_button.add_theme_font_size_override("font_size", 24)
+	lobby_button.set_text(lobby_summary)
+	lobby_button.tooltip_text = "Lobby ID: %s" % lobby_id
+	lobby_button.custom_minimum_size = Vector2(0, 42)
+	lobby_button.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	lobby_button.clip_text = true
+	lobby_button.add_theme_font_size_override("font_size", 20)
 	lobby_button.set_name("lobby_%s" % lobby_id)
-	lobby_button.alignment = HORIZONTAL_ALIGNMENT_FILL
+	lobby_button.alignment = HORIZONTAL_ALIGNMENT_LEFT
 	lobby_button.connect("pressed", Callable(self, "join_lobby").bind(lobby_id))
 	return lobby_button
 
@@ -181,8 +209,7 @@ func _ensure_steam_error_popup():
 func _on_steam_error_dismissed() -> void:
 	if is_instance_valid(_steam_error_popup):
 		_steam_error_popup.close_popup()
-	main_menu.show()
-	steam_menu.hide()
+	_show_main_menu()
 
 func _on_quit_game_pressed() -> void:
 	get_tree().quit()
