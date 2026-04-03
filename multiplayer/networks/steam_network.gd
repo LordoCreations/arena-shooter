@@ -2,6 +2,9 @@ extends Node
 
 const LOBBY_NAME = "3DShooter"
 const LOBBY_MODE = "CoOP"
+const LOBBY_GAME_KEY = "game_key"
+const LOBBY_GAME_VALUE = "arena_shooter"
+const LOBBY_RESULT_LIMIT := 100
 const JOIN_TIMEOUT_SECONDS := 3.0
 const AUTO_RETURN_SECONDS := 3.0
 var popup_template_scene := preload("res://scenes/ui/menu_popup_template.tscn")
@@ -79,6 +82,7 @@ func _on_lobby_created(connect_status: int, lobby_id) -> void:
 		Steam.setLobbyJoinable(_hosted_lobby_id, true)
 		Steam.setLobbyData(_hosted_lobby_id, "name", LOBBY_NAME)
 		Steam.setLobbyData(_hosted_lobby_id, "mode", LOBBY_MODE)
+		Steam.setLobbyData(_hosted_lobby_id, LOBBY_GAME_KEY, LOBBY_GAME_VALUE)
 	else:
 		_show_failure_popup_and_return("Host Failed", "Failed to create Steam lobby (status %s)." % connect_status, AUTO_RETURN_SECONDS)
 
@@ -229,8 +233,9 @@ func shutdown_lobby(_host_shutdown: bool = false) -> void:
 
 func list_lobbies() -> void:
 	notifications.notify("Requesting lobby list...", false)
+	Steam.addRequestLobbyListResultCountFilter(LOBBY_RESULT_LIMIT)
 	Steam.addRequestLobbyListDistanceFilter(Steam.LOBBY_DISTANCE_FILTER_WORLDWIDE)
-	Steam.addRequestLobbyListStringFilter("name", "3DShooter", Steam.LOBBY_COMPARISON_EQUAL)
+	Steam.addRequestLobbyListStringFilter(LOBBY_GAME_KEY, LOBBY_GAME_VALUE, Steam.LOBBY_COMPARISON_EQUAL)
 	Steam.requestLobbyList()
 
 func get_lobby_display() -> String:

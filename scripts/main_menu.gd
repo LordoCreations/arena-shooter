@@ -1,5 +1,11 @@
 extends Node
 var popup_template_scene := preload("res://scenes/ui/menu_popup_template.tscn")
+const LOBBY_NAME := "3DShooter"
+const LOBBY_NAME_KEY := "name"
+const LOBBY_MODE_KEY := "mode"
+const LOBBY_GAME_KEY := "game_key"
+const LOBBY_GAME_VALUE := "arena_shooter"
+const LOBBY_RESULT_LIMIT := 100
 
 # --- Menu ---
 @onready var main_menu = $CanvasLayer/MainMenu
@@ -11,11 +17,22 @@ var popup_template_scene := preload("res://scenes/ui/menu_popup_template.tscn")
 @onready var steam_lobbies := $CanvasLayer/SteamHUD/MarginContainer/Options/Lobbies/VBoxContainer
 
 var _steam_error_popup
+var _visible_lobbies: Array = []
+var _using_fallback_lobby_filter: bool = false
 
 func _ready() -> void:
 	main_menu.show()
 	steam_menu.hide()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+
+func _connect_lobby_signals() -> void:
+	var match_list_signal = Steam.lobby_match_list
+	if not match_list_signal.is_connected(Callable(self, "_on_lobby_match_list")):
+		match_list_signal.connect(Callable(self, "_on_lobby_match_list"))
+
+	var lobby_data_signal = Steam.lobby_data_update
+	if not lobby_data_signal.is_connected(Callable(self, "_on_lobby_data_update")):
+		lobby_data_signal.connect(Callable(self, "_on_lobby_data_update"))
 
 func _store_username() -> void:
 	MultiplayerManager.player_username = username.text
@@ -60,17 +77,23 @@ func _on_join_steam_pressed() -> void:
 		steam_menu.hide()
 		_show_steam_error_dialog()
 		return
-	var lobby_signal = Steam.lobby_match_list
-	if not lobby_signal.is_connected(Callable(self, "_on_lobby_match_list")):
-		lobby_signal.connect(Callable(self, "_on_lobby_match_list"))
+	_connect_lobby_signals()
 	_on_list_lobbies_pressed()
 
 func _on_list_lobbies_pressed() -> void:
 	if MultiplayerManager.pending_network_type != MultiplayerManager.NETWORK_TYPE.STEAM:
 		_on_join_steam_pressed()
 		return
+	_request_lobby_list(false)
+
+func _request_lobby_list(use_fallback_filter: bool) -> void:
+	_using_fallback_lobby_filter = use_fallback_filter
+	Steam.addRequestLobbyListResultCountFilter(LOBBY_RESULT_LIMIT)
 	Steam.addRequestLobbyListDistanceFilter(Steam.LOBBY_DISTANCE_FILTER_WORLDWIDE)
-	Steam.addRequestLobbyListStringFilter("name", "3DShooter", Steam.LOBBY_COMPARISON_EQUAL)
+	if use_fallback_filter:
+		Steam.addRequestLobbyListStringFilter(LOBBY_NAME_KEY, LOBBY_NAME, Steam.LOBBY_COMPARISON_EQUAL)
+	else:
+		Steam.addRequestLobbyListStringFilter(LOBBY_GAME_KEY, LOBBY_GAME_VALUE, Steam.LOBBY_COMPARISON_EQUAL)
 	Steam.requestLobbyList()
 
 func _on_host_p_2p_game_pressed() -> void:
@@ -84,22 +107,58 @@ func _on_host_p_2p_game_pressed() -> void:
 		return
 	_start_game()
 
-func _on_lobby_match_list(lobbies: Array):
+func _on_lobby_match_list(lobbies: Array, _lobby_count: int = -1) -> void:
+	if lobbies.is_empty() and not _using_fallback_lobby_filter:
+		_request_lobby_list(true)
+		return
+
+	_visible_lobbies = lobbies.duplicate()
+	for lobby_id in _visible_lobbies:
+		Steam.requestLobbyData(int(lobby_id))
+	_render_lobby_list()
+
+func _on_lobby_data_update(success: int, lobby_id: int, _member_id: int) -> void:
+	if success == 0:
+		return
+	if _visible_lobbies.has(lobby_id):
+		_render_lobby_list()
+
+func _render_lobby_list() -> void:
+	_clear_lobby_buttons()
+
+	if _visible_lobbies.is_empty():
+		var no_lobbies_label := Label.new()
+		no_lobbies_label.text = "No Steam lobbies found."
+		no_lobbies_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		no_lobbies_label.add_theme_font_size_override("font_size", 20)
+		steam_lobbies.add_child(no_lobbies_label)
+		return
+
+	for lobby_id in _visible_lobbies:
+		steam_lobbies.add_child(_create_lobby_button(int(lobby_id)))
+
+func _create_lobby_button(lobby_id: int) -> Button:
+	var lobby_name: String = Steam.getLobbyData(lobby_id, LOBBY_NAME_KEY)
+	var lobby_mode: String = Steam.getLobbyData(lobby_id, LOBBY_MODE_KEY)
+	var member_count: int = Steam.getNumLobbyMembers(lobby_id)
+
+	if lobby_name == "":
+		lobby_name = "Lobby %s" % lobby_id
+	if lobby_mode == "":
+		lobby_mode = "Unknown"
+
+	var lobby_button: Button = Button.new()
+	lobby_button.set_text("%s | %s | %s player(s)" % [lobby_name, lobby_mode, member_count])
+	lobby_button.set_size(Vector2(100, 30))
+	lobby_button.add_theme_font_size_override("font_size", 24)
+	lobby_button.set_name("lobby_%s" % lobby_id)
+	lobby_button.alignment = HORIZONTAL_ALIGNMENT_FILL
+	lobby_button.connect("pressed", Callable(self, "join_lobby").bind(lobby_id))
+	return lobby_button
+
+func _clear_lobby_buttons() -> void:
 	for lobby_child in steam_lobbies.get_children():
 		lobby_child.queue_free()
-		
-	for lobby in lobbies:
-		var lobby_name: String = Steam.getLobbyData(lobby, "name")
-		if lobby_name != "":
-			var lobby_mode: String = Steam.getLobbyData(lobby, "mode")
-			var lobby_button: Button = Button.new()
-			lobby_button.set_text(lobby_name + " | " + lobby_mode)
-			lobby_button.set_size(Vector2(100, 30))
-			lobby_button.add_theme_font_size_override("font_size", 24)
-			lobby_button.set_name("lobby_%s" % lobby)
-			lobby_button.alignment = HORIZONTAL_ALIGNMENT_FILL
-			lobby_button.connect("pressed", Callable(self, "join_lobby").bind(lobby))
-			steam_lobbies.add_child(lobby_button)
 
 func _show_steam_error_dialog() -> void:
 	var popup = _ensure_steam_error_popup()
