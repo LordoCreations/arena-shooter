@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="WeaponResource" load_steps=7 format=3 uid="uid://2bt5xciptsid"]
+[gd_resource type="Resource" script_class="WeaponResource" format=3 uid="uid://2bt5xciptsid"]
 
 [ext_resource type="AudioStream" uid="uid://pspltg1gti4s" path="res://weapons/pistol/unholster_pistol.mp3" id="1_ahuer"]
 [ext_resource type="PackedScene" uid="uid://cupogmlrh2i7m" path="res://weapons/vfx/muzzle_flash.tscn" id="2_0yx20"]
@@ -14,8 +14,7 @@ view_model = ExtResource("6_tdi56")
 view_model_pos = Vector3(0.5, 0, 0)
 view_model_scale = Vector3(0.3, 0.3, 0.3)
 world_model = ExtResource("6_tdi56")
-world_model_pos = Vector3(-0.2, 0, -0.05)
-world_model_rot = Vector3(3.142, 0, 0)
+world_model_pos = Vector3(0, 0.3, 0.1)
 world_model_scale = Vector3(0.3, 0.3, 0.3)
 view_idle_anim = "idle"
 view_equip_anim = "idle"

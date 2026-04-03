@@ -5,6 +5,11 @@ extends Node3D
 @export var muzzle_flash_anchor_path : NodePath = NodePath("../EquipmentPivot/Hand/MuzzleFlashAnchor")
 @export var shot_max_distance: float = 70.0
 @export var occluded_shot_volume_reduction_db: float = -10.0
+@export var world_model_vertical_aim_only: bool = true
+@export var world_model_pitch_scale: float = 1.0
+@export var world_model_pitch_neutral: float = 0.0
+@export var world_model_pitch_min: float = -1.1
+@export var world_model_pitch_max: float = 0.8
 
 @onready var bullet_cast : RayCast3D = $"../EquipmentPivot/Hand/BulletRayCast"
 @onready var muzzle_flash_anchor : Node3D = get_node_or_null(muzzle_flash_anchor_path) as Node3D
@@ -16,6 +21,9 @@ extends Node3D
 
 var current_view_model : Node3D
 var current_world_model : Node3D
+var _world_model_base_local_basis: Basis = Basis.IDENTITY
+var _world_model_base_local_position: Vector3 = Vector3.ZERO
+var _world_model_base_local_scale: Vector3 = Vector3.ONE
 
 @export var allow_shoot := true
 
@@ -29,6 +37,34 @@ func _clear_weapon_models() -> void:
 		current_world_model.queue_free()
 	current_view_model = null
 	current_world_model = null
+	_world_model_base_local_basis = Basis.IDENTITY
+	_world_model_base_local_position = Vector3.ZERO
+	_world_model_base_local_scale = Vector3.ONE
+
+func _resolve_world_model_container() -> void:
+	if world_model_container and is_instance_valid(world_model_container):
+		return
+	if not player or not is_instance_valid(player):
+		return
+
+	var candidate: Node = player.get_node_or_null("Character/Container/orange_astro/Armature/Skeleton3D/BoneAttachment3D/WorldModel")
+	if candidate is Node3D:
+		world_model_container = candidate as Node3D
+		return
+
+	candidate = player.get_node_or_null("Character/Container/orange_astro/Armature/Skeleton3D/BoneAttachment3D")
+	if candidate is Node3D:
+		world_model_container = candidate as Node3D
+		return
+
+	candidate = player.get_node_or_null("%WorldModel")
+	if candidate is Node3D:
+		world_model_container = candidate as Node3D
+		return
+
+	var found := player.find_child("WorldModel", true, false)
+	if found is Node3D:
+		world_model_container = found as Node3D
 
 func refill_current_weapon_reserve_to_max() -> void:
 	if not current_weapon:
@@ -55,6 +91,7 @@ func equip_weapon_template(weapon_template: WeaponResource, fill_full_ammo: bool
 
 func update_weapon_model() -> void:
 	_clear_weapon_models()
+	_resolve_world_model_container()
 
 	if current_weapon != null:
 		if current_weapon.resource_path != "" and current_weapon.weapon_manager != self:
@@ -75,6 +112,9 @@ func update_weapon_model() -> void:
 			current_world_model.position = current_weapon.world_model_pos;
 			current_world_model.rotation = current_weapon.world_model_rot;
 			current_world_model.scale = current_weapon.world_model_scale;
+			_world_model_base_local_basis = current_world_model.basis.orthonormalized()
+			_world_model_base_local_position = current_world_model.position
+			_world_model_base_local_scale = current_world_model.scale
 
 		fire_rate_timer.wait_time = max(current_weapon.fire_rate_time, 0.01)
 		if muzzle_flash_anchor:
@@ -185,6 +225,74 @@ func _physics_process(_delta: float) -> void:
 func _process(delta: float) -> void:
 	if current_weapon:
 		current_weapon.on_process(delta)
+	_update_world_model_pitch_only_aim()
+
+func _basis_from_to(from_dir: Vector3, to_dir: Vector3) -> Basis:
+	var from_n := from_dir.normalized()
+	var to_n := to_dir.normalized()
+	var dot: float = clampf(from_n.dot(to_n), -1.0, 1.0)
+	if dot >= 0.9999:
+		return Basis.IDENTITY
+
+	var axis := from_n.cross(to_n)
+	if axis.length_squared() <= 0.0001:
+		axis = Vector3.UP.cross(from_n)
+		if axis.length_squared() <= 0.0001:
+			axis = Vector3.RIGHT.cross(from_n)
+	axis = axis.normalized()
+	return Basis(axis, acos(dot))
+
+func _get_world_model_rotation_basis() -> Basis:
+	if current_weapon:
+		return Basis.from_euler(current_weapon.world_model_rot)
+	return Basis.IDENTITY
+
+func _update_world_model_pitch_only_aim() -> void:
+	if not world_model_vertical_aim_only:
+		return
+	if not current_world_model or not is_instance_valid(current_world_model):
+		return
+	if not player or not is_instance_valid(player):
+		return
+	if not (player is Node3D):
+		return
+	if not camera_arm or not is_instance_valid(camera_arm):
+		return
+
+	var parent_node := current_world_model.get_parent_node_3d()
+	if parent_node == null:
+		return
+
+	var base_global_basis: Basis = (parent_node.global_transform.basis * _world_model_base_local_basis).orthonormalized()
+	var correction_basis: Basis = _get_world_model_rotation_basis().orthonormalized()
+	var source_global_basis: Basis = (base_global_basis * correction_basis.inverse()).orthonormalized()
+	if player.has_method("_get_ik_aim_target_world_position"):
+		var aim_target_variant: Variant = player.call("_get_ik_aim_target_world_position")
+		if aim_target_variant is Vector3:
+			var aim_target: Vector3 = aim_target_variant
+			var aim_forward: Vector3 = aim_target - current_world_model.global_transform.origin
+			if aim_forward.length_squared() > 0.0001:
+				aim_forward = aim_forward.normalized()
+				var base_forward: Vector3 = -source_global_basis.z.normalized()
+				var align_basis := _basis_from_to(base_forward, aim_forward)
+				var aimed_source_global_basis: Basis = (align_basis * source_global_basis).orthonormalized()
+				var aimed_global_basis: Basis = (aimed_source_global_basis * correction_basis).orthonormalized()
+				var aimed_local_basis: Basis = (parent_node.global_transform.basis.inverse() * aimed_global_basis).orthonormalized()
+				current_world_model.basis = aimed_local_basis.scaled(_world_model_base_local_scale)
+				current_world_model.position = _world_model_base_local_position
+				return
+
+	var local_pitch: float = camera_arm.rotation.x
+	var pitch_delta: float = clampf((local_pitch - world_model_pitch_neutral) * world_model_pitch_scale, world_model_pitch_min, world_model_pitch_max)
+	var player_right: Vector3 = (player as Node3D).global_transform.basis.x.normalized()
+
+	var pitch_basis := Basis(player_right, pitch_delta)
+	var pitched_source_global_basis: Basis = (pitch_basis * source_global_basis).orthonormalized()
+	var target_global_basis: Basis = (pitched_source_global_basis * correction_basis).orthonormalized()
+	var target_local_basis: Basis = (parent_node.global_transform.basis.inverse() * target_global_basis).orthonormalized()
+
+	current_world_model.basis = target_local_basis.scaled(_world_model_base_local_scale)
+	current_world_model.position = _world_model_base_local_position
 
 func _try_fire() -> void:
 	if not current_weapon:
@@ -270,6 +378,7 @@ func sync_impact(type: String, pos: Vector3, normal: Vector3, dir: Vector3):
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
 	fire_rate_timer.one_shot = true
+	_resolve_world_model_container()
 	if current_weapon:
 		fire_rate_timer.wait_time = max(current_weapon.fire_rate_time, 0.01)
 		if muzzle_flash_anchor:
