@@ -55,6 +55,8 @@ var player_id: int
 # --- Multiplayer ---
 var username = ""
 @export var network_equipped_weapon_path: String = "res://weapons/pistol/pistol.tres"
+@export var network_world_model_forward: Vector3 = Vector3.FORWARD
+@export var network_world_model_up: Vector3 = Vector3.UP
 var _last_applied_network_weapon_path: String = ""
 
 # --- HUD ---

@@ -8,14 +8,14 @@ var weapon_manager : WeaponManager
 @export var view_model : PackedScene
 
 @export var view_model_pos : Vector3
-@export var view_model_rot : Vector3
+@export var view_model_rot : Vector3 = Vector3.ZERO
 @export var view_model_scale := Vector3(1,1,1)
 
 # Third Person Perspective
 @export var world_model : PackedScene
 
 @export var world_model_pos : Vector3
-@export var world_model_rot : Vector3
+@export var world_model_rot : Vector3 = Vector3.ZERO
 @export var world_model_scale := Vector3(1,1,1)
 
 # Animations

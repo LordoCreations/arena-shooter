@@ -10,6 +10,9 @@ extends Node3D
 @export var world_model_pitch_neutral: float = 0.0
 @export var world_model_pitch_min: float = -1.1
 @export var world_model_pitch_max: float = 0.8
+@export var world_model_mesh_yaw_offset: float = 0.0
+@export var world_model_sync_from_authority: bool = true
+@export var world_model_follow_ik_only: bool = true
 
 @onready var bullet_cast : RayCast3D = $"../EquipmentPivot/Hand/BulletRayCast"
 @onready var muzzle_flash_anchor : Node3D = get_node_or_null(muzzle_flash_anchor_path) as Node3D
@@ -225,7 +228,8 @@ func _physics_process(_delta: float) -> void:
 func _process(delta: float) -> void:
 	if current_weapon:
 		current_weapon.on_process(delta)
-	_update_world_model_pitch_only_aim()
+	if not world_model_follow_ik_only:
+		_update_world_model_pitch_only_aim()
 
 func _basis_from_to(from_dir: Vector3, to_dir: Vector3) -> Basis:
 	var from_n := from_dir.normalized()
@@ -241,11 +245,6 @@ func _basis_from_to(from_dir: Vector3, to_dir: Vector3) -> Basis:
 			axis = Vector3.RIGHT.cross(from_n)
 	axis = axis.normalized()
 	return Basis(axis, acos(dot))
-
-func _get_world_model_rotation_basis() -> Basis:
-	if current_weapon:
-		return Basis.from_euler(current_weapon.world_model_rot)
-	return Basis.IDENTITY
 
 func _update_world_model_pitch_only_aim() -> void:
 	if not world_model_vertical_aim_only:
@@ -263,32 +262,75 @@ func _update_world_model_pitch_only_aim() -> void:
 	if parent_node == null:
 		return
 
-	var base_global_basis: Basis = (parent_node.global_transform.basis * _world_model_base_local_basis).orthonormalized()
-	var correction_basis: Basis = _get_world_model_rotation_basis().orthonormalized()
-	var source_global_basis: Basis = (base_global_basis * correction_basis.inverse()).orthonormalized()
-	if player.has_method("_get_ik_aim_target_world_position"):
-		var aim_target_variant: Variant = player.call("_get_ik_aim_target_world_position")
-		if aim_target_variant is Vector3:
-			var aim_target: Vector3 = aim_target_variant
-			var aim_forward: Vector3 = aim_target - current_world_model.global_transform.origin
-			if aim_forward.length_squared() > 0.0001:
-				aim_forward = aim_forward.normalized()
-				var base_forward: Vector3 = -source_global_basis.z.normalized()
-				var align_basis := _basis_from_to(base_forward, aim_forward)
-				var aimed_source_global_basis: Basis = (align_basis * source_global_basis).orthonormalized()
-				var aimed_global_basis: Basis = (aimed_source_global_basis * correction_basis).orthonormalized()
-				var aimed_local_basis: Basis = (parent_node.global_transform.basis.inverse() * aimed_global_basis).orthonormalized()
-				current_world_model.basis = aimed_local_basis.scaled(_world_model_base_local_scale)
-				current_world_model.position = _world_model_base_local_position
-				return
+	if world_model_sync_from_authority and not player.is_multiplayer_authority():
+		var replicated_forward: Variant = player.get("network_world_model_forward")
+		var replicated_up: Variant = player.get("network_world_model_up")
+		if replicated_forward is Vector3 and replicated_up is Vector3:
+			var synced_forward: Vector3 = (replicated_forward as Vector3)
+			var synced_up: Vector3 = (replicated_up as Vector3)
+			if synced_forward.length_squared() > 0.0001 and synced_up.length_squared() > 0.0001:
+				synced_forward = synced_forward.normalized()
+				synced_up = synced_up.normalized()
+				if absf(synced_forward.dot(synced_up)) > 0.98:
+					synced_up = Vector3.UP
+				var synced_right: Vector3 = synced_forward.cross(synced_up)
+				if synced_right.length_squared() > 0.0001:
+					synced_right = synced_right.normalized()
+					synced_up = synced_right.cross(synced_forward).normalized()
+					var synced_global_basis := Basis(synced_right, synced_up, -synced_forward).orthonormalized()
+					var synced_local_basis: Basis = (parent_node.global_transform.basis.inverse() * synced_global_basis).orthonormalized()
+					current_world_model.basis = synced_local_basis.scaled(_world_model_base_local_scale)
+					current_world_model.position = _world_model_base_local_position
+					return
+
+	var player_up: Vector3 = Vector3.UP
+	var yaw_basis := Basis(player_up, camera_arm.rotation.y)
+	var yaw_forward: Vector3 = (yaw_basis * Vector3.FORWARD).normalized()
+	var yaw_right: Vector3 = yaw_forward.cross(player_up)
+	if yaw_right.length_squared() <= 0.0001:
+		yaw_right = Vector3.RIGHT
+	yaw_right = yaw_right.normalized()
 
 	var local_pitch: float = camera_arm.rotation.x
 	var pitch_delta: float = clampf((local_pitch - world_model_pitch_neutral) * world_model_pitch_scale, world_model_pitch_min, world_model_pitch_max)
-	var player_right: Vector3 = (player as Node3D).global_transform.basis.x.normalized()
+	var pitched_forward: Vector3 = (Basis(yaw_right, pitch_delta) * yaw_forward).normalized()
+	# Guarantee the muzzle always points away from the player body.
+	if pitched_forward.dot(yaw_forward) < 0.0:
+		pitched_forward = -pitched_forward
 
-	var pitch_basis := Basis(player_right, pitch_delta)
-	var pitched_source_global_basis: Basis = (pitch_basis * source_global_basis).orthonormalized()
-	var target_global_basis: Basis = (pitched_source_global_basis * correction_basis).orthonormalized()
+	# Apply yaw correction around player-up to keep the gun upright while honoring per-weapon yaw.
+	var weapon_yaw_offset: float = 0.0
+	var weapon_pitch_offset: float = 0.0
+	var weapon_roll_offset: float = 0.0
+	if current_weapon:
+		weapon_yaw_offset = current_weapon.world_model_rot.y
+		weapon_pitch_offset = current_weapon.world_model_rot.x
+		weapon_roll_offset = current_weapon.world_model_rot.z
+	var corrected_forward: Vector3 = (Basis(player_up, world_model_mesh_yaw_offset + weapon_yaw_offset) * pitched_forward).normalized()
+	if corrected_forward.dot(yaw_forward) < 0.0:
+		corrected_forward = -corrected_forward
+
+	# Lock roll by deriving right from player up and the desired forward direction.
+	var target_right: Vector3 = corrected_forward.cross(player_up)
+	if target_right.length_squared() <= 0.0001:
+		target_right = yaw_right
+	target_right = target_right.normalized()
+	var target_up: Vector3 = target_right.cross(corrected_forward).normalized()
+	var target_global_basis := Basis(target_right, target_up, -corrected_forward).orthonormalized()
+
+	# Apply per-weapon pitch/roll offsets after upright yaw solve.
+	if absf(weapon_pitch_offset) > 0.0001 or absf(weapon_roll_offset) > 0.0001:
+		var pitch_offset_basis := Basis(target_right, weapon_pitch_offset)
+		var roll_offset_basis := Basis(corrected_forward, weapon_roll_offset)
+		target_global_basis = (roll_offset_basis * pitch_offset_basis * target_global_basis).orthonormalized()
+		target_right = target_global_basis.x.normalized()
+		target_up = target_global_basis.y.normalized()
+		corrected_forward = (-target_global_basis.z).normalized()
+
+	if world_model_sync_from_authority and player.is_multiplayer_authority():
+		player.set("network_world_model_forward", corrected_forward)
+		player.set("network_world_model_up", target_up)
+
 	var target_local_basis: Basis = (parent_node.global_transform.basis.inverse() * target_global_basis).orthonormalized()
 
 	current_world_model.basis = target_local_basis.scaled(_world_model_base_local_scale)

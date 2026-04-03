@@ -1942,6 +1942,12 @@ properties/16/replication_mode = 1
 properties/17/path = NodePath(".:network_equipped_weapon_path")
 properties/17/spawn = true
 properties/17/replication_mode = 1
+properties/18/path = NodePath(".:network_world_model_forward")
+properties/18/spawn = true
+properties/18/replication_mode = 1
+properties/19/path = NodePath(".:network_world_model_up")
+properties/19/spawn = true
+properties/19/replication_mode = 1
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_damage_bar_bg"]
 transparency = 1
