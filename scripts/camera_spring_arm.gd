@@ -44,8 +44,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		mouse_pitch = clamp(mouse_pitch, min_pitch, max_pitch)
 
 	if event.is_action_pressed("aim"):
-		# PREVENT ADS WHILE SPRINTING
-		if get_parent().is_sprinting: return 
+		var player_node := get_parent()
+		if player_node and bool(player_node.get("is_sprinting")):
+			if player_node.has_method("cancel_sprint_for_ads"):
+				player_node.call("cancel_sprint_for_ads")
+			else:
+				player_node.set("is_sprinting", false)
 		start_aim()
 	elif event.is_action_released("aim"):
 		stop_aim()

@@ -24,6 +24,10 @@ func _ready() -> void:
 	main_menu.show()
 	steam_menu.hide()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+	username.max_length = MultiplayerManager.USERNAME_MAX_LENGTH
+	username.placeholder_text = "Enter your Username (max %d chars)" % MultiplayerManager.USERNAME_MAX_LENGTH
+	if not MultiplayerManager.player_username.strip_edges().is_empty():
+		username.text = MultiplayerManager.player_username
 
 func _show_steam_menu() -> void:
 	main_menu.hide()
@@ -43,7 +47,8 @@ func _connect_lobby_signals() -> void:
 		lobby_data_signal.connect(Callable(self, "_on_lobby_data_update"))
 
 func _store_username() -> void:
-	MultiplayerManager.player_username = username.text
+	var cleaned := MultiplayerManager.set_local_preferred_username(username.text)
+	username.text = cleaned
 
 func _start_game() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED

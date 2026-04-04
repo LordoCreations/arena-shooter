@@ -2,6 +2,7 @@
 
 [ext_resource type="Script" uid="uid://kxf8pjubpq53" path="res://scripts/loot_box.gd" id="1_g5vc0"]
 [ext_resource type="PackedScene" uid="uid://lhd55kkfvrqt" path="res://assets/loot/chest.gltf" id="2_wgs2t"]
+[ext_resource type="AudioStream" uid="uid://dhrbtvaaski1" path="res://assets/chest.mp3" id="3_5fpk2"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_hvdq0"]
 size = Vector3(1.6, 1, 1)
@@ -46,6 +47,9 @@ modulate = Color(0.95, 0.95, 0.95, 0.95)
 outline_modulate = Color(0, 0, 0, 0.85)
 text = "Gun"
 font_size = 104
+
+[node name="OpenSoundPlayer" type="AudioStreamPlayer3D" parent="." unique_id=257674077]
+stream = ExtResource("3_5fpk2")
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=1418316540]
 replication_config = SubResource("SceneReplicationConfig_mwygb")

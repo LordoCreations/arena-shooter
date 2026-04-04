@@ -11,6 +11,8 @@
 [ext_resource type="Script" uid="uid://oewxytkn6r4r" path="res://scripts/crosshair.gd" id="7_1jxqw"]
 [ext_resource type="Texture2D" uid="uid://bv6rqrrqhvkb" path="res://assets/ui/health.svg" id="8_01u6a"]
 [ext_resource type="Texture2D" uid="uid://wgb5xxpdfpho" path="res://assets/ui/ammunition.svg" id="9_xj8yf"]
+[ext_resource type="PackedScene" uid="uid://ckitohpud8we4" path="res://scenes/ui/player_hud_overlay.tscn" id="10_hud"]
+[ext_resource type="PackedScene" uid="uid://dws2r644e7wps" path="res://scenes/ui/respawn_hud.tscn" id="11_respawn"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_i3pqv"]
 radius = 0.4
@@ -1948,6 +1950,9 @@ properties/18/replication_mode = 1
 properties/19/path = NodePath(".:network_world_model_up")
 properties/19/spawn = true
 properties/19/replication_mode = 1
+properties/20/path = NodePath(".:network_is_dead")
+properties/20/spawn = true
+properties/20/replication_mode = 1
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_damage_bar_bg"]
 transparency = 1
@@ -2431,6 +2436,12 @@ mouse_filter = 2
 texture = ExtResource("9_xj8yf")
 expand_mode = 5
 stretch_mode = 4
+
+[node name="PlayerHudOverlay" parent="SpringArm3D/Camera3D/HUD" unique_id=1579802175 instance=ExtResource("10_hud")]
+layout_mode = 1
+
+[node name="RespawnHUD" parent="SpringArm3D/Camera3D/HUD" unique_id=975869172 instance=ExtResource("11_respawn")]
+layout_mode = 1
 
 [node name="MultiplayerSynchronizer" type="MultiplayerSynchronizer" parent="." unique_id=1451314738]
 replication_config = SubResource("SceneReplicationConfig_2hs0m")

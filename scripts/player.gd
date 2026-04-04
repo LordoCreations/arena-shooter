@@ -5,6 +5,7 @@ extends CharacterBody3D
 @onready var camera = $SpringArm3D/Camera3D
 @onready var character_skeleton: Skeleton3D = $Character/Container/orange_astro/Armature/Skeleton3D
 @onready var convergence_ray: RayCast3D = $SpringArm3D/Camera3D/Convergence
+@onready var collision_shape: CollisionShape3D = $CollisionShape3D
 
 # --- Movement Settings ---
 @export var walk_speed: float = 6.0
@@ -57,6 +58,7 @@ var username = ""
 @export var network_equipped_weapon_path: String = "res://weapons/pistol/pistol.tres"
 @export var network_world_model_forward: Vector3 = Vector3.FORWARD
 @export var network_world_model_up: Vector3 = Vector3.UP
+@export var network_is_dead: bool = false
 var _last_applied_network_weapon_path: String = ""
 
 # --- HUD ---
@@ -67,6 +69,8 @@ var _last_applied_network_weapon_path: String = ""
 @onready var ammo_label = $SpringArm3D/Camera3D/HUD/AmmoContainer/AmmoLabel
 @onready var reserve_ammo_label = $SpringArm3D/Camera3D/HUD/AmmoContainer/ReserveAmmoLabel
 @onready var hud_hit_flash = $SpringArm3D/Camera3D/HUD/HitFlash
+@onready var player_hud_overlay = $SpringArm3D/Camera3D/HUD/PlayerHudOverlay
+@onready var respawn_hud = $SpringArm3D/Camera3D/HUD/RespawnHUD
 @onready var username_tag = $Username
 @onready var damage_bar_root = $DamageBarRoot
 @onready var damage_bar_fill = $DamageBarRoot/Fill
@@ -81,6 +85,7 @@ var _last_applied_network_weapon_path: String = ""
 @export var regen_delay_seconds: float = 6.0
 @export var regen_percent_per_second: float = 0.03
 @export var world_fall_kill_y: float = -45.0
+@export var respawn_delay_seconds: float = 5.0
 @export var ik_convergence_distance: float = 90.0
 @export var ik_convergence_lerp_speed: float = 28.0
 @export var ik_hands_forward_distance: float = 0.48
@@ -110,6 +115,9 @@ const LOOT_INTERACT_DISTANCE := 2.4
 var _interact_hold_progress: float = 0.0
 var _interact_hold_target: Node = null
 var _is_interact_holding: bool = false
+var _is_dead: bool = false
+var _respawn_unlock_time_ms: int = 0
+var _respawn_ready: bool = false
 var _damage_bar_visible_until_ms: int = 0
 var _last_damage_time_ms: int = 0
 var _hud_health_ratio: float = 1.0
@@ -141,6 +149,8 @@ var _overhead_flash_material: StandardMaterial3D
 const OVERHEAD_BAR_HALF_WIDTH := 0.6
 const ENEMY_BAR_COLOR := Color(0.86, 0.18, 0.18, 1.0)
 const IK_EPSILON := 0.0001
+const ENEMY_REMOTE_ALBEDO_TEXTURE: Texture2D = preload("res://assets/purple_astro_Image_0.jpg")
+const RESPAWN_WEAPON_PATH := "res://weapons/pistol/pistol.tres"
 
 
 # Visibility
@@ -183,6 +193,9 @@ func calculate_jump_velocity() -> float:
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not is_multiplayer_authority(): return
+	if _is_dead:
+		weapon_manager.set_trigger_pressed(false)
+		return
 	if not MultiplayerManager.controls_enabled:
 		weapon_manager.set_trigger_pressed(false)
 		return
@@ -257,7 +270,7 @@ func _reset_interact_hold_state() -> void:
 	_is_interact_holding = false
 
 func _update_interact_hold(delta: float) -> void:
-	if not is_multiplayer_authority() or not MultiplayerManager.controls_enabled:
+	if not is_multiplayer_authority() or not MultiplayerManager.controls_enabled or _is_dead:
 		_reset_interact_hold_state()
 		return
 
@@ -317,6 +330,9 @@ func _update_loot_prompt() -> void:
 		return
 	if _loot_prompt_label == null or not is_instance_valid(_loot_prompt_label):
 		return
+	if _is_dead:
+		_loot_prompt_label.visible = false
+		return
 	if not MultiplayerManager.controls_enabled:
 		_loot_prompt_label.visible = false
 		return
@@ -339,8 +355,16 @@ func _update_loot_prompt() -> void:
 
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority():
+		_apply_remote_dead_state()
+		if _is_dead:
+			return
 		update_nameplate_visibility()
 		_apply_animation_state(network_is_sprinting, network_anim_blend)
+		return
+
+	if _is_dead:
+		velocity = Vector3.ZERO
+		weapon_manager.set_trigger_pressed(false)
 		return
 
 	if global_position.y <= world_fall_kill_y:
@@ -348,16 +372,24 @@ func _physics_process(delta: float) -> void:
 		return
 
 	var controls_enabled = MultiplayerManager.controls_enabled
-	
-	# Check sprint state before movement logic
-	is_sprinting = controls_enabled and Input.is_action_pressed("sprint") and is_on_floor() and Input.get_vector("left", "right", "up", "down").y < 0
-	
-	# SPRINT CANCELS ADS
-	if is_sprinting and is_aiming:
-		camera_arm.stop_aim() # Force camera back to hip
+	var sprint_pressed := Input.is_action_pressed("sprint")
+	var sprint_just_pressed := Input.is_action_just_pressed("sprint")
+	var can_start_sprint := controls_enabled and is_on_floor() and Input.get_vector("left", "right", "up", "down").y < 0
+
+	if is_aiming:
+		# Sprinting while ADS should drop ADS only when sprint input is newly pressed.
+		if can_start_sprint and sprint_just_pressed:
+			camera_arm.stop_aim()
+			is_sprinting = true
+		else:
+			is_sprinting = false
+	else:
+		is_sprinting = can_start_sprint and sprint_pressed
+
 	if not controls_enabled and is_aiming:
 		camera_arm.stop_aim()
 	if not controls_enabled:
+		is_sprinting = false
 		weapon_manager.set_trigger_pressed(false)
 
 	move(delta, controls_enabled)
@@ -367,7 +399,9 @@ func _physics_process(delta: float) -> void:
 	equipment.look_at(target_pos, Vector3.UP)
 
 func _process(delta: float) -> void:
-	if is_multiplayer_authority() and health > 0.0 and health < max_health:
+	_update_respawn_hud()
+
+	if is_multiplayer_authority() and not _is_dead and health > 0.0 and health < max_health:
 		var seconds_since_damage = (Time.get_ticks_msec() - _last_damage_time_ms) / 1000.0
 		if seconds_since_damage >= regen_delay_seconds:
 			health = min(max_health, health + (max_health * regen_percent_per_second) * delta)
@@ -382,6 +416,11 @@ func _process(delta: float) -> void:
 
 	_update_hud_health_visuals()
 	_update_damage_bar_visuals()
+	if _is_dead:
+		if is_multiplayer_authority():
+			_update_ammo_display()
+		return
+
 	_sync_network_weapon_appearance()
 	_update_ammo_display()
 	_update_loot_prompt()
@@ -1126,6 +1165,179 @@ func _sync_network_weapon_appearance() -> void:
 	weapon_manager.equip_weapon_template(weapon_resource, false)
 	_last_applied_network_weapon_path = network_equipped_weapon_path
 
+func set_username(new_username: String) -> void:
+	var cleaned := MultiplayerManager.sanitize_username(new_username, player_id)
+	username = cleaned
+	if username_tag:
+		username_tag.text = cleaned
+	if is_multiplayer_authority():
+		MultiplayerManager.player_username = cleaned
+
+func _connect_world_hud_signals() -> void:
+	if not is_multiplayer_authority():
+		return
+
+	var world := get_tree().current_scene
+	if world == null:
+		return
+
+	if player_hud_overlay and player_hud_overlay.has_method("set_local_peer_id"):
+		player_hud_overlay.call("set_local_peer_id", multiplayer.get_unique_id())
+
+	if world.has_signal("scoreboard_changed") and not world.scoreboard_changed.is_connected(_on_world_scoreboard_changed):
+		world.scoreboard_changed.connect(_on_world_scoreboard_changed)
+	if world.has_signal("kill_feed_added") and not world.kill_feed_added.is_connected(_on_world_kill_feed_added):
+		world.kill_feed_added.connect(_on_world_kill_feed_added)
+
+	if world.has_method("get_scoreboard_snapshot"):
+		_on_world_scoreboard_changed(world.call("get_scoreboard_snapshot"))
+	if player_hud_overlay and player_hud_overlay.has_method("clear_kill_feed"):
+		player_hud_overlay.call("clear_kill_feed")
+	if world.has_method("get_kill_feed_snapshot"):
+		var existing_feed: Array = world.call("get_kill_feed_snapshot")
+		for feed_index in range(existing_feed.size() - 1, -1, -1):
+			var feed_entry = existing_feed[feed_index]
+			if typeof(feed_entry) == TYPE_DICTIONARY:
+				_on_world_kill_feed_added(feed_entry)
+
+func _on_world_scoreboard_changed(entries: Array) -> void:
+	if not is_multiplayer_authority():
+		return
+	if player_hud_overlay and player_hud_overlay.has_method("update_scoreboard"):
+		player_hud_overlay.call("update_scoreboard", entries)
+
+func _on_world_kill_feed_added(entry: Dictionary) -> void:
+	if not is_multiplayer_authority():
+		return
+	if player_hud_overlay and player_hud_overlay.has_method("push_kill_feed_entry"):
+		player_hud_overlay.call("push_kill_feed_entry", entry)
+
+func _set_dead_visual_state(dead: bool) -> void:
+	if collision_shape:
+		collision_shape.disabled = dead
+
+	if is_multiplayer_authority():
+		if visuals:
+			visuals.visible = not dead
+		if equipment:
+			equipment.visible = not dead
+		if dead and is_aiming:
+			is_aiming = false
+			camera_arm.stop_aim()
+		if weapon_manager:
+			weapon_manager.allow_shoot = not dead
+		if viewModel:
+			viewModel.visible = not dead
+		if worldModel:
+			worldModel.visible = not dead
+	else:
+		visible = not dead
+
+	if dead:
+		damage_bar_root.hide()
+		username_tag.hide()
+
+func _apply_remote_dead_state() -> void:
+	if is_multiplayer_authority():
+		return
+	if _is_dead == network_is_dead:
+		return
+	_is_dead = network_is_dead
+	_set_dead_visual_state(_is_dead)
+
+func _update_respawn_hud() -> void:
+	if not is_multiplayer_authority():
+		return
+	if respawn_hud == null:
+		return
+	if not _is_dead:
+		return
+
+	var remaining_seconds: float = maxf(float(_respawn_unlock_time_ms - Time.get_ticks_msec()) / 1000.0, 0.0)
+	if respawn_hud.has_method("update_countdown"):
+		respawn_hud.call("update_countdown", remaining_seconds)
+
+	if remaining_seconds <= 0.0 and not _respawn_ready:
+		_respawn_ready = true
+		if respawn_hud.has_method("set_respawn_ready"):
+			respawn_hud.call("set_respawn_ready", true)
+
+func _on_respawn_requested() -> void:
+	if not is_multiplayer_authority():
+		return
+	if not _is_dead or not _respawn_ready:
+		return
+	spawn()
+
+func _start_death_state(attacker_peer_id: int) -> void:
+	if _is_dead:
+		return
+
+	_is_dead = true
+	network_is_dead = true
+	_respawn_ready = false
+	_respawn_unlock_time_ms = Time.get_ticks_msec() + int(respawn_delay_seconds * 1000.0)
+	velocity = Vector3.ZERO
+	_set_dead_visual_state(true)
+	weapon_manager.set_trigger_pressed(false)
+
+	if is_multiplayer_authority() and respawn_hud and respawn_hud.has_method("show_countdown"):
+		respawn_hud.call("show_countdown", respawn_delay_seconds)
+
+	_report_death_to_world(attacker_peer_id)
+
+func _report_death_to_world(attacker_peer_id: int) -> void:
+	var world := get_tree().current_scene
+	if world == null or not world.has_method("report_player_death"):
+		return
+
+	var victim_peer_id := multiplayer.get_unique_id()
+	var killer_peer_id := attacker_peer_id if attacker_peer_id > 0 else 0
+
+	if multiplayer.multiplayer_peer == null:
+		world.call("report_player_death", victim_peer_id, killer_peer_id)
+		return
+
+	if multiplayer.is_server():
+		world.call_deferred("report_player_death", victim_peer_id, killer_peer_id)
+	else:
+		world.rpc("report_player_death", victim_peer_id, killer_peer_id)
+
+func _apply_enemy_albedo_variant() -> void:
+	if is_multiplayer_authority():
+		return
+	if visuals == null:
+		return
+
+	for mesh_node in visuals.find_children("*", "MeshInstance3D", true, false):
+		if not (mesh_node is MeshInstance3D):
+			continue
+
+		var mesh_instance := mesh_node as MeshInstance3D
+		if worldModel != null and worldModel.is_ancestor_of(mesh_instance):
+			continue
+		var source_material = mesh_instance.get_active_material(0)
+		if not (source_material is StandardMaterial3D):
+			continue
+
+		mesh_instance.material_override = _create_enemy_albedo_material(source_material as StandardMaterial3D)
+
+func _create_enemy_albedo_material(source_material: StandardMaterial3D) -> StandardMaterial3D:
+	var copied_material = source_material.duplicate(true)
+	if copied_material is StandardMaterial3D:
+		var standard_copy := copied_material as StandardMaterial3D
+		standard_copy.albedo_texture = ENEMY_REMOTE_ALBEDO_TEXTURE
+		return standard_copy
+
+	var fallback := StandardMaterial3D.new()
+	fallback.albedo_color = source_material.albedo_color
+	fallback.albedo_texture = ENEMY_REMOTE_ALBEDO_TEXTURE
+	fallback.metallic = source_material.metallic
+	fallback.roughness = source_material.roughness
+	fallback.metallic_texture = source_material.metallic_texture
+	fallback.normal_texture = source_material.normal_texture
+	return fallback
+
 func give_full_reserve_ammo_local() -> void:
 	if not is_multiplayer_authority():
 		return
@@ -1158,9 +1370,18 @@ func equip_weapon_full_from_path(weapon_resource_path: String) -> void:
 	equip_weapon_full_from_path_local(weapon_resource_path)
 
 func _kill_from_world_fall() -> void:
+	if _is_dead:
+		return
 	health = 0.0
-	hide()
-	spawn()
+	_set_local_health_ratio(0.0)
+	_start_death_state(0)
+
+func _reset_weapon_on_spawn() -> void:
+	if not is_multiplayer_authority():
+		return
+	if weapon_manager == null or not is_instance_valid(weapon_manager):
+		return
+	equip_weapon_full_from_path_local(RESPAWN_WEAPON_PATH)
 
 func _get_spawn_zone_positions() -> Array[Vector3]:
 	var positions: Array[Vector3] = []
@@ -1213,6 +1434,9 @@ func update_view_and_world_model_masks():
 		%WorldModel.show()
 
 func _on_aim_toggled(aiming: bool) -> void:
+	if _is_dead:
+		is_aiming = false
+		return
 	is_aiming = aiming
 	if aiming:
 		camera.set_cull_mask_value(WORLD_MODEL_LAYER, false)
@@ -1222,9 +1446,20 @@ func _on_aim_toggled(aiming: bool) -> void:
 		camera.set_cull_mask_value(WORLD_MODEL_LAYER, true)
 		camera.set_cull_mask_value(VIEW_MODEL_LAYER, false)
 		visuals.show()
+
+func cancel_sprint_for_ads() -> void:
+	is_sprinting = false
+
+func is_dead() -> bool:
+	return _is_dead
+
 @rpc("any_peer")
-func hurt(damage: float):
-	var attacker_peer_id = multiplayer.get_remote_sender_id()
+func hurt(damage: float, attacker_peer_id: int = 0):
+	if _is_dead:
+		return
+	var resolved_attacker_peer_id := attacker_peer_id
+	if resolved_attacker_peer_id <= 0:
+		resolved_attacker_peer_id = multiplayer.get_remote_sender_id()
 	var prev_health = health
 	health -= damage
 	health = clamp(health, 0.0, max_health)
@@ -1232,12 +1467,11 @@ func hurt(damage: float):
 	_set_local_health_ratio(health / max_health)
 	if health < (max_health * 0.5) and health < prev_health:
 		_hud_hit_flash_strength = 1.0
-	if attacker_peer_id > 0 and attacker_peer_id != multiplayer.get_unique_id():
-		_show_damage_to_attacker.rpc_id(attacker_peer_id, health / max_health)
+	if resolved_attacker_peer_id > 0 and resolved_attacker_peer_id != multiplayer.get_unique_id():
+		_show_damage_to_attacker.rpc_id(resolved_attacker_peer_id, health / max_health)
 
 	if health <= 0:
-		hide()
-		spawn()
+		_start_death_state(resolved_attacker_peer_id)
 
 @rpc("authority", "call_remote")
 func _show_damage_to_attacker(health_ratio: float) -> void:
@@ -1260,13 +1494,22 @@ func _ready():
 	weapon_manager.update_weapon_model()
 	network_equipped_weapon_path = _get_current_weapon_resource_path()
 	_last_applied_network_weapon_path = network_equipped_weapon_path
+	_respawn_ready = false
+	_respawn_unlock_time_ms = 0
 
 
 	if is_multiplayer_authority():
-		username = MultiplayerManager.player_username
-		username = username if username and len(username) > 0 else "Player " + str(player_id)
-		username_tag.text = username
+		set_username(MultiplayerManager.player_username)
 		username_tag.hide()
+		MultiplayerManager.register_local_peer_username(player_id)
+		_connect_world_hud_signals()
+	else:
+		_apply_enemy_albedo_variant()
+
+	if respawn_hud and respawn_hud.has_signal("respawn_requested") and not respawn_hud.respawn_requested.is_connected(_on_respawn_requested):
+		respawn_hud.respawn_requested.connect(_on_respawn_requested)
+	if respawn_hud and respawn_hud.has_method("hide_hud"):
+		respawn_hud.call("hide_hud")
 
 	var fill_style = health_bar.get("theme_override_styles/fill")
 	if fill_style is StyleBoxFlat:
@@ -1295,7 +1538,8 @@ func _ready():
 	if not is_multiplayer_authority():
 		username_tag.show()
 		damage_bar_root.hide()
-		show()
+		_is_dead = network_is_dead
+		_set_dead_visual_state(_is_dead)
 		return
 	
 	hud.show()
@@ -1314,6 +1558,16 @@ func _ready():
 	camera_arm.aim_toggled.connect(_on_aim_toggled)
 
 func spawn() -> void:
+	_is_dead = false
+	network_is_dead = false
+	_respawn_ready = false
+	_respawn_unlock_time_ms = 0
+	velocity = Vector3.ZERO
+	_set_dead_visual_state(false)
+	_reset_weapon_on_spawn()
+	if respawn_hud and respawn_hud.has_method("hide_hud"):
+		respawn_hud.call("hide_hud")
+
 	health = max_health
 	_last_damage_time_ms = Time.get_ticks_msec()
 	show()
@@ -1335,3 +1589,6 @@ func spawn() -> void:
 	_update_ammo_display()
 	if is_multiplayer_authority():
 		_clear_enemy_damage_bar.rpc()
+		var world := get_tree().current_scene
+		if world and world.has_method("_refresh_input_state"):
+			world.call("_refresh_input_state")

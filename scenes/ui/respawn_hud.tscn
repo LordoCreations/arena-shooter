@@ -1,0 +1,62 @@
+[gd_scene format=3 uid="uid://dws2r644e7wps"]
+
+[ext_resource type="Script" uid="uid://dlgvbw424blj4" path="res://scripts/ui/respawn_hud.gd" id="1_respawn"]
+
+[node name="RespawnHUD" type="Control" unique_id=585711981]
+visible = false
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_respawn")
+
+[node name="GreyOverlay" type="ColorRect" parent="." unique_id=1639155109]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 2
+color = Color(0.16, 0.16, 0.16, 0.66)
+
+[node name="TopCenter" type="CenterContainer" parent="." unique_id=322614416]
+layout_mode = 1
+anchors_preset = 5
+anchor_left = 0.5
+anchor_right = 0.5
+offset_left = -260.0
+offset_top = 22.0
+offset_right = 260.0
+offset_bottom = 100.0
+grow_horizontal = 2
+
+[node name="CountdownLabel" type="Label" parent="TopCenter" unique_id=1796473963]
+layout_mode = 2
+theme_override_colors/font_color = Color(0.95, 0.95, 0.95, 1)
+theme_override_colors/font_outline_color = Color(0, 0, 0, 0.95)
+theme_override_constants/outline_size = 2
+theme_override_font_sizes/font_size = 40
+text = "Respawn in 5 s"
+
+[node name="CenterButton" type="CenterContainer" parent="." unique_id=639623568]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -180.0
+offset_top = -30.0
+offset_right = 180.0
+offset_bottom = 30.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="RespawnButton" type="Button" parent="CenterButton" unique_id=804179250]
+custom_minimum_size = Vector2(300, 25)
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "Respawn"

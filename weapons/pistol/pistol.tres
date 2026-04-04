@@ -26,6 +26,7 @@ magazine_capacity = 6
 max_reserve_ammo = 36
 fire_rate_time = 0.4
 muzzle_flash_position = Vector3(0, 0.122, -0.6629)
+world_muzzle_flash_position = Vector3(-1, 0.5, 0)
 shoot_sound = ExtResource("4_f2tw8")
 reload_sound = ExtResource("2_73cem")
 equip_sound = ExtResource("1_fbyut")

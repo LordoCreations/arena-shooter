@@ -13,6 +13,8 @@ enum LootType {
 @export var player_push_impulse_strength: float = 12.0
 @export var settle_and_lock_after_seconds: float = -1.0
 @export var despawn_y_threshold: float = -50.0
+@export var open_sound_max_distance: float = 32.0
+@export var open_sound_occluded_reduction_db: float = -10.0
 
 var loot_id: int = -1
 var _consumed: bool = false
@@ -22,6 +24,7 @@ var _local_player_cache: Node3D
 var _next_preview_visibility_update_ms: int = 0
 
 @onready var _gun_preview_label: Label3D = get_node_or_null("GunPreview") as Label3D
+@onready var _open_sound_player: AudioStreamPlayer3D = get_node_or_null("OpenSoundPlayer") as AudioStreamPlayer3D
 
 const GROUND_CHECK_DISTANCE := 1.5
 const INTERACTION_VERTICAL_TOLERANCE := 2.8
@@ -161,6 +164,56 @@ func _peer_can_interact(peer_id: int) -> bool:
 	if player_node == null:
 		return false
 	return _is_player_in_interaction_range(player_node)
+
+@rpc("authority", "call_local", "reliable")
+func sync_open_sound(sound_origin: Vector3) -> void:
+	_play_open_sound_local(sound_origin)
+
+func _play_open_sound_local(sound_origin: Vector3) -> void:
+	if _open_sound_player == null or _open_sound_player.stream == null:
+		return
+
+	var transient_player := _open_sound_player.duplicate() as AudioStreamPlayer3D
+	if transient_player == null:
+		return
+
+	var world_root: Node = get_tree().current_scene
+	if world_root == null:
+		world_root = get_tree().root
+	world_root.add_child(transient_player)
+
+	var volume_db := _open_sound_player.volume_db
+	if _is_open_sound_occluded_from_listener(sound_origin):
+		volume_db += open_sound_occluded_reduction_db
+
+	transient_player.global_position = sound_origin
+	transient_player.max_distance = open_sound_max_distance
+	transient_player.volume_db = volume_db
+	transient_player.finished.connect(Callable(transient_player, "queue_free"), CONNECT_ONE_SHOT)
+	transient_player.play()
+
+func _is_open_sound_occluded_from_listener(sound_origin: Vector3) -> bool:
+	var listener_camera := get_viewport().get_camera_3d()
+	if listener_camera == null:
+		return false
+
+	var world_3d := get_world_3d()
+	if world_3d == null:
+		return false
+
+	var exclude: Array = [self]
+	var listener_player := listener_camera.get_parent()
+	if listener_player and listener_player.get_parent() and listener_player.get_parent() is CollisionObject3D:
+		exclude.append(listener_player.get_parent())
+
+	var query := PhysicsRayQueryParameters3D.create(listener_camera.global_position, sound_origin)
+	query.exclude = exclude
+	var hit := world_3d.direct_space_state.intersect_ray(query)
+	if hit.is_empty():
+		return false
+
+	var collider = hit.get("collider")
+	return collider != self
 
 func interact_from_peer(peer_id: int) -> void:
 	if not _is_host_authority() or _consumed:

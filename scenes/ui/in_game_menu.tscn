@@ -1,5 +1,17 @@
 [gd_scene format=3 uid="uid://b02l3a7ceuakh"]
 
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_leaderboard_bg"]
+bg_color = Color(0.05490196, 0.06666667, 0.08627451, 0.9)
+border_width_left = 1
+border_width_top = 1
+border_width_right = 1
+border_width_bottom = 1
+border_color = Color(0.49019608, 0.5568628, 0.64705884, 0.58)
+corner_radius_top_left = 8
+corner_radius_top_right = 8
+corner_radius_bottom_right = 8
+corner_radius_bottom_left = 8
+
 [node name="InGameMenu" type="Control"]
 layout_mode = 3
 anchors_preset = 15
@@ -11,7 +23,9 @@ mouse_filter = 2
 
 [node name="PauseMenu" type="PanelContainer" parent="."]
 layout_mode = 1
-anchors_preset = 15
+anchors_preset = 11
+anchor_left = 0.333333
+anchor_top = 0.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
@@ -43,6 +57,27 @@ theme_override_font_sizes/font_size = 24
 text = "Lobby Info: N/A"
 horizontal_alignment = 1
 vertical_alignment = 1
+
+[node name="UsernameRow" type="HBoxContainer" parent="PauseMenu/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="UsernameLabel" type="Label" parent="PauseMenu/MarginContainer/VBoxContainer/UsernameRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Username"
+
+[node name="UsernameInput" type="LineEdit" parent="PauseMenu/MarginContainer/VBoxContainer/UsernameRow"]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+max_length = 50
+placeholder_text = "Enter username (max 50 chars)"
+
+[node name="ApplyUsername" type="Button" parent="PauseMenu/MarginContainer/VBoxContainer/UsernameRow"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Apply"
 
 [node name="VolumeRow" type="HBoxContainer" parent="PauseMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
@@ -85,6 +120,48 @@ text = "Quit Game"
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Lobby Controls"
+
+[node name="LeaderboardPanel" type="PanelContainer" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 9
+anchor_left = 0.0
+anchor_top = 0.0
+anchor_right = 0.333333
+anchor_bottom = 1.0
+offset_left = 12.0
+offset_top = 12.0
+offset_right = -12.0
+offset_bottom = -12.0
+grow_vertical = 2
+theme_override_styles/panel = SubResource("StyleBoxFlat_leaderboard_bg")
+
+[node name="MarginContainer" type="MarginContainer" parent="LeaderboardPanel"]
+layout_mode = 2
+theme_override_constants/margin_left = 10
+theme_override_constants/margin_top = 10
+theme_override_constants/margin_right = 10
+theme_override_constants/margin_bottom = 10
+
+[node name="VBoxContainer" type="VBoxContainer" parent="LeaderboardPanel/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 8
+
+[node name="Label" type="Label" parent="LeaderboardPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "Leaderboard"
+horizontal_alignment = 1
+
+[node name="ScoreScroll" type="ScrollContainer" parent="LeaderboardPanel/MarginContainer/VBoxContainer"]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="ScoreRows" type="VBoxContainer" parent="LeaderboardPanel/MarginContainer/VBoxContainer/ScoreScroll"]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 4
 
 [node name="LobbyControls" type="PanelContainer" parent="."]
 visible = false

@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://c3g4j2ygkydr7"]
+[gd_scene format=3 uid="uid://c3g4j2ygkydr7"]
 
 [ext_resource type="Script" uid="uid://clhs6sawiwggj" path="res://scripts/world.gd" id="1_k0juu"]
 [ext_resource type="Script" uid="uid://di8hsbrc5je2w" path="res://multiplayer/networks/network_manager.gd" id="2_71j4m"]
@@ -31,80 +31,80 @@ size = Vector3(2, 42, 86)
 [sub_resource type="BoxShape3D" id="BoxShape3D_arena_west"]
 size = Vector3(2, 42, 86)
 
-[node name="World" type="Node"]
+[node name="World" type="Node" unique_id=1958957228]
 script = ExtResource("1_k0juu")
 
-[node name="NetworkManager" type="Node" parent="." node_paths=PackedStringArray("_players_spawn_node")]
+[node name="NetworkManager" type="Node" parent="." unique_id=1680741753 node_paths=PackedStringArray("_players_spawn_node")]
 unique_name_in_owner = true
 script = ExtResource("2_71j4m")
 _players_spawn_node = NodePath("../Players")
 
-[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="." unique_id=811651660]
 transform = Transform3D(-0.8660254, -0.43301278, 0.25, 0, 0.49999997, 0.86602545, -0.50000006, 0.75, -0.43301266, 0, 0, 0)
 shadow_enabled = true
 
-[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+[node name="WorldEnvironment" type="WorldEnvironment" parent="." unique_id=163347304]
 environment = SubResource("Environment_aqk2v")
 
-[node name="Environment" parent="." instance=ExtResource("3_qfnet")]
+[node name="Environment" parent="." unique_id=1060979788 instance=ExtResource("3_qfnet")]
 
-[node name="ArenaBounds" type="StaticBody3D" parent="."]
+[node name="ArenaBounds" type="StaticBody3D" parent="." unique_id=1039710258]
 
-[node name="NorthWall" type="CollisionShape3D" parent="ArenaBounds"]
+[node name="NorthWall" type="CollisionShape3D" parent="ArenaBounds" unique_id=1209329737]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, 31)
 shape = SubResource("BoxShape3D_arena_north")
 
-[node name="SouthWall" type="CollisionShape3D" parent="ArenaBounds"]
+[node name="SouthWall" type="CollisionShape3D" parent="ArenaBounds" unique_id=840364251]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 20, -31)
 shape = SubResource("BoxShape3D_arena_south")
 
-[node name="EastWall" type="CollisionShape3D" parent="ArenaBounds"]
+[node name="EastWall" type="CollisionShape3D" parent="ArenaBounds" unique_id=1115800045]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 31, 20, 0)
 shape = SubResource("BoxShape3D_arena_east")
 
-[node name="WestWall" type="CollisionShape3D" parent="ArenaBounds"]
+[node name="WestWall" type="CollisionShape3D" parent="ArenaBounds" unique_id=1522994860]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -31, 20, 0)
 shape = SubResource("BoxShape3D_arena_west")
 
-[node name="CanvasLayer" type="CanvasLayer" parent="."]
+[node name="CanvasLayer" type="CanvasLayer" parent="." unique_id=247816414]
 
-[node name="InGameMenu" parent="CanvasLayer" instance=ExtResource("5_ui")]
+[node name="InGameMenu" parent="CanvasLayer" unique_id=1826553302 instance=ExtResource("5_ui")]
 
-[node name="Notifications" type="PanelContainer" parent="CanvasLayer"]
+[node name="Notifications" type="PanelContainer" parent="CanvasLayer" unique_id=251326079]
 offset_right = 40.0
 offset_bottom = 40.0
 script = ExtResource("4_i7141")
 
-[node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="."]
+[node name="MultiplayerSpawner" type="MultiplayerSpawner" parent="." unique_id=1549610642]
 spawn_path = NodePath("../Players")
 
-[node name="Players" type="Node3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 24.271395, 0)
+[node name="Players" type="Node3D" parent="." unique_id=1319680920]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -19.442732, 0)
 
-[node name="SpawnZones" type="Node3D" parent="."]
+[node name="SpawnZones" type="Node3D" parent="." unique_id=398635345]
 
-[node name="SpawnA" type="Marker3D" parent="SpawnZones"]
+[node name="SpawnA" type="Marker3D" parent="SpawnZones" unique_id=717300383]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 24.5, 0)
 
-[node name="SpawnB" type="Marker3D" parent="SpawnZones"]
+[node name="SpawnB" type="Marker3D" parent="SpawnZones" unique_id=98937683]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 24.5, 12)
 
-[node name="SpawnC" type="Marker3D" parent="SpawnZones"]
+[node name="SpawnC" type="Marker3D" parent="SpawnZones" unique_id=777490137]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 24.5, 12)
 
-[node name="SpawnD" type="Marker3D" parent="SpawnZones"]
+[node name="SpawnD" type="Marker3D" parent="SpawnZones" unique_id=378012009]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 18, 24.5, -12)
 
-[node name="SpawnE" type="Marker3D" parent="SpawnZones"]
+[node name="SpawnE" type="Marker3D" parent="SpawnZones" unique_id=750598229]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -18, 24.5, -12)
 
-[node name="SpawnF" type="Marker3D" parent="SpawnZones"]
+[node name="SpawnF" type="Marker3D" parent="SpawnZones" unique_id=1083278104]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 24.5, 0)
 
-[node name="SpawnG" type="Marker3D" parent="SpawnZones"]
+[node name="SpawnG" type="Marker3D" parent="SpawnZones" unique_id=1932447299]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 24.5, 0)
 
-[node name="SpawnH" type="Marker3D" parent="SpawnZones"]
+[node name="SpawnH" type="Marker3D" parent="SpawnZones" unique_id=1565335467]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 24.5, 26)
 
 [connection signal="spawned" from="MultiplayerSpawner" to="." method="_on_multiplayer_spawner_spawned"]

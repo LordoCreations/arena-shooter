@@ -254,7 +254,7 @@ func get_lobby_members() -> Array:
 	members.append({
 		"id": local_id,
 		"id_type": "peer",
-		"name": "Player %s" % local_id,
+		"name": MultiplayerManager.get_display_name(local_id),
 		"can_kick": false,
 		"can_transfer": false,
 	})
@@ -262,7 +262,7 @@ func get_lobby_members() -> Array:
 		members.append({
 			"id": peer_id,
 			"id_type": "peer",
-			"name": "Player %s" % peer_id,
+			"name": MultiplayerManager.get_display_name(peer_id),
 			"can_kick": multiplayer.is_server(),
 			"can_transfer": false,
 		})
@@ -291,7 +291,12 @@ func transfer_lobby_ownership(member_id, id_type: String = "peer") -> void:
 func _add_player_to_game(id: int) -> void:
 	if _players_spawn_node and _players_spawn_node.has_node(str(id)):
 		return
-	notifications.notify("Player %s joined the game!" % id, true)
+
+	if id == multiplayer.get_unique_id():
+		MultiplayerManager.register_local_peer_username(id)
+
+	var joined_name := MultiplayerManager.get_display_name(id)
+	notifications.notify("%s joined the game!" % joined_name, true)
 
 	var player_to_add = multiplayer_scene.instantiate()
 	player_to_add.hide()
@@ -303,8 +308,13 @@ func _add_player_to_game(id: int) -> void:
 	else:
 		notifications.notify("Error: Spawn node not set!", true)
 
+	if multiplayer.is_server() and id != multiplayer.get_unique_id():
+		MultiplayerManager.sync_all_usernames_to_peer(id)
+
 func _del_player(id: int) -> void:
-	notifications.notify("Player %s left the game." % id, true)
+	var departed_name := MultiplayerManager.get_display_name(id)
+	notifications.notify("%s left the game." % departed_name, true)
+	MultiplayerManager.clear_peer_username(id)
 	if not _players_spawn_node or not _players_spawn_node.has_node(str(id)):
 		return
 	_players_spawn_node.get_node(str(id)).queue_free()

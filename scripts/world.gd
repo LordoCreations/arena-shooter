@@ -1,5 +1,8 @@
 extends Node
 
+signal scoreboard_changed(entries: Array)
+signal kill_feed_added(entry: Dictionary)
+
 @export var pause: bool = false
 var popup_template_scene := preload("res://scenes/ui/menu_popup_template.tscn")
 @export var ammo_box_scene: PackedScene = preload("res://scenes/ammo_box.tscn")
@@ -23,10 +26,15 @@ var popup_template_scene := preload("res://scenes/ui/menu_popup_template.tscn")
 @onready var pause_menu = $CanvasLayer/InGameMenu/PauseMenu
 @onready var lobby_info_label = $CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/LobbyInfo
 @onready var lobby_controls_button = $CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/LobbyControlsButton
+@onready var username_input = $CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/UsernameRow/UsernameInput
+@onready var apply_username_button = $CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/UsernameRow/ApplyUsername
 @onready var volume_slider = $CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/VolumeRow/VolumeSlider
 @onready var volume_value_label = $CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/VolumeRow/VolumeValue
+@onready var leaderboard_panel = $CanvasLayer/InGameMenu/LeaderboardPanel
+@onready var leaderboard_rows = $CanvasLayer/InGameMenu/LeaderboardPanel/MarginContainer/VBoxContainer/ScoreScroll/ScoreRows
 @onready var lobby_controls_panel = $CanvasLayer/InGameMenu/LobbyControls
 @onready var lobby_controls_list = $CanvasLayer/InGameMenu/LobbyControls/MarginContainer/VBoxContainer/PlayerScroll/PlayerList
+@onready var notifications = $CanvasLayer/Notifications
 @onready var loot_root: Node3D = get_node_or_null("Loot")
 
 var _steam_error_popup
@@ -38,18 +46,33 @@ var _loot_spawn_data: Dictionary = {}
 
 const LOOT_TYPE_AMMO := 0
 const LOOT_TYPE_GUN := 1
+const MAX_KILL_FEED_ENTRIES := 8
+
+var _player_stats: Dictionary = {}
+var _kill_feed_entries: Array = []
+var _scoreboard_entries: Array = []
 
 func _ready() -> void:
 	pause_menu.hide()
+	leaderboard_panel.hide()
 	lobby_controls_panel.hide()
 	_wire_in_game_menu_signals()
+	_sync_username_input_with_profile()
 	_sync_volume_slider_from_master()
 	_setup_loot_spawning()
 	if not multiplayer.peer_connected.is_connected(_on_peer_connected_sync_loot):
 		multiplayer.peer_connected.connect(_on_peer_connected_sync_loot)
+	if not multiplayer.peer_disconnected.is_connected(_on_peer_disconnected_cleanup_state):
+		multiplayer.peer_disconnected.connect(_on_peer_disconnected_cleanup_state)
+	if not MultiplayerManager.username_changed.is_connected(_on_username_changed):
+		MultiplayerManager.username_changed.connect(_on_username_changed)
 	_start_pending_network()
+	_initialize_match_state()
 	_update_lobby_info()
-	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_refresh_input_state()
+
+func _process(_delta: float) -> void:
+	_refresh_input_state()
 
 func _wire_in_game_menu_signals() -> void:
 	var return_game_button := get_node_or_null("CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/ReturnGame") as Button
@@ -66,6 +89,12 @@ func _wire_in_game_menu_signals() -> void:
 
 	if lobby_controls_button and not lobby_controls_button.pressed.is_connected(_on_lobby_controls_pressed):
 		lobby_controls_button.pressed.connect(_on_lobby_controls_pressed)
+
+	if apply_username_button and not apply_username_button.pressed.is_connected(_on_apply_username_pressed):
+		apply_username_button.pressed.connect(_on_apply_username_pressed)
+
+	if username_input and not username_input.text_submitted.is_connected(_on_username_text_submitted):
+		username_input.text_submitted.connect(_on_username_text_submitted)
 
 	var close_lobby_controls_button := get_node_or_null("CanvasLayer/InGameMenu/LobbyControls/MarginContainer/VBoxContainer/CloseLobbyControls") as Button
 	if close_lobby_controls_button and not close_lobby_controls_button.pressed.is_connected(_on_close_lobby_controls_pressed):
@@ -159,6 +188,12 @@ func _get_active_loot_count_for_type(loot_type: int) -> int:
 	return count
 
 func _on_peer_connected_sync_loot(peer_id: int) -> void:
+	if multiplayer.is_server():
+		_ensure_player_stats(peer_id)
+		_broadcast_scoreboard_state()
+		_sync_match_state_to_peer(peer_id)
+		MultiplayerManager.sync_all_usernames_to_peer(peer_id)
+
 	if not _is_loot_spawn_host():
 		return
 
@@ -234,6 +269,7 @@ func consume_loot_box(loot_id: int, peer_id: int, loot_type: int) -> void:
 		return
 	if not _loot_nodes.has(loot_id):
 		return
+	var loot_node = _loot_nodes.get(loot_id)
 
 	var player = _get_player_for_peer(peer_id)
 	if player == null:
@@ -247,6 +283,13 @@ func consume_loot_box(loot_id: int, peer_id: int, loot_type: int) -> void:
 		if weapon_path == "":
 			weapon_path = _pick_random_weapon_path()
 		_grant_weapon_by_path(player, peer_id, weapon_path)
+
+	if loot_node is Node3D and loot_node.has_method("sync_open_sound"):
+		var sound_origin := (loot_node as Node3D).global_position
+		if multiplayer.multiplayer_peer == null:
+			loot_node.call("sync_open_sound", sound_origin)
+		else:
+			(loot_node as Node).rpc("sync_open_sound", sound_origin)
 
 	_remove_loot_box.rpc(loot_id)
 
@@ -363,13 +406,116 @@ func _start_pending_network() -> void:
 func _toggle_pause_menu() -> void:
 	pause = !pause
 	pause_menu.visible = pause
-	MultiplayerManager.controls_enabled = not pause
 	if pause:
+		leaderboard_panel.show()
+		_sync_username_input_with_profile()
 		_update_lobby_info()
-		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		_refresh_pause_leaderboard()
 	else:
+		leaderboard_panel.hide()
 		lobby_controls_panel.hide()
-		Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+	_refresh_input_state()
+
+func _refresh_pause_leaderboard() -> void:
+	if leaderboard_rows == null:
+		return
+	for child in leaderboard_rows.get_children():
+		child.queue_free()
+
+	var entries := get_scoreboard_snapshot()
+	if entries.is_empty():
+		var empty_label := Label.new()
+		empty_label.text = "No scores yet."
+		empty_label.add_theme_font_size_override("font_size", 20)
+		leaderboard_rows.add_child(empty_label)
+		return
+
+	var table := GridContainer.new()
+	table.columns = 3
+	table.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	table.add_theme_constant_override("h_separation", 12)
+	table.add_theme_constant_override("v_separation", 6)
+	leaderboard_rows.add_child(table)
+
+	table.add_child(_create_leaderboard_table_cell("Name", HORIZONTAL_ALIGNMENT_LEFT, true, false))
+	table.add_child(_create_leaderboard_table_cell("K 🗡", HORIZONTAL_ALIGNMENT_CENTER, true, true))
+	table.add_child(_create_leaderboard_table_cell("D 💀", HORIZONTAL_ALIGNMENT_CENTER, true, true))
+
+	for entry in entries:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		table.add_child(_create_leaderboard_table_cell(str(entry.get("name", "Player")), HORIZONTAL_ALIGNMENT_LEFT, false, false))
+		table.add_child(_create_leaderboard_table_cell(str(int(entry.get("kills", 0))), HORIZONTAL_ALIGNMENT_CENTER, false, true))
+		table.add_child(_create_leaderboard_table_cell(str(int(entry.get("deaths", 0))), HORIZONTAL_ALIGNMENT_CENTER, false, true))
+
+func _create_leaderboard_table_cell(text_value: String, alignment: HorizontalAlignment, is_header: bool, is_stat_column: bool) -> Label:
+	var label := Label.new()
+	label.text = text_value
+	label.horizontal_alignment = alignment
+	label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	label.autowrap_mode = TextServer.AUTOWRAP_OFF
+
+	if is_stat_column:
+		label.custom_minimum_size = Vector2(72.0, 0.0)
+	else:
+		label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+		label.clip_text = true
+
+	if is_header:
+		label.add_theme_font_size_override("font_size", 22)
+		label.add_theme_color_override("font_color", Color(0.93, 0.95, 0.98, 0.95))
+	else:
+		label.add_theme_font_size_override("font_size", 20)
+		label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.95, 0.92))
+
+	return label
+
+func _is_local_player_dead() -> bool:
+	var local_player := _get_local_authority_player()
+	if local_player == null:
+		return false
+	if local_player.has_method("is_dead"):
+		return bool(local_player.call("is_dead"))
+	return false
+
+func _refresh_input_state() -> void:
+	var menu_open: bool = bool(pause_menu.visible or lobby_controls_panel.visible)
+	var dead_menu_open: bool = _is_local_player_dead()
+	var should_free_cursor: bool = menu_open or dead_menu_open
+	MultiplayerManager.controls_enabled = not should_free_cursor
+	var desired_mouse_mode := Input.MOUSE_MODE_VISIBLE if should_free_cursor else Input.MOUSE_MODE_CAPTURED
+	if Input.mouse_mode != desired_mouse_mode:
+		Input.mouse_mode = desired_mouse_mode
+
+func _sync_username_input_with_profile() -> void:
+	if username_input == null:
+		return
+	username_input.max_length = MultiplayerManager.USERNAME_MAX_LENGTH
+	var local_id := multiplayer.get_unique_id() if multiplayer.multiplayer_peer != null else -1
+	var preferred := MultiplayerManager.set_local_preferred_username(MultiplayerManager.player_username, local_id)
+	username_input.text = preferred
+
+func _on_username_text_submitted(_new_text: String) -> void:
+	_on_apply_username_pressed()
+
+func _on_apply_username_pressed() -> void:
+	if username_input == null:
+		return
+
+	var local_id := multiplayer.get_unique_id() if multiplayer.multiplayer_peer != null else -1
+	var cleaned_username := MultiplayerManager.set_local_username_and_broadcast(username_input.text, local_id)
+	username_input.text = cleaned_username
+
+	var local_player := _get_local_authority_player()
+	if local_player != null and local_player.has_method("set_username"):
+		local_player.call("set_username", cleaned_username)
+
+	if notifications:
+		notifications.notify("Username updated to %s" % cleaned_username, false)
+
+	_refresh_lobby_controls()
+	if multiplayer.is_server():
+		_broadcast_scoreboard_state()
 
 func _update_lobby_info() -> void:
 	var lobby_display = %NetworkManager.get_lobby_display()
@@ -393,6 +539,7 @@ func _on_main_menu_pressed() -> void:
 	MultiplayerManager.pending_lobby_id = 0
 	MultiplayerManager.multiplayer_mode_enabled = false
 	MultiplayerManager.host_mode_enabled = false
+	MultiplayerManager.player_usernames.clear()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	get_tree().change_scene_to_file("res://scenes/main_menu.tscn")
 
@@ -404,9 +551,11 @@ func _on_quit_game_pressed() -> void:
 func _on_lobby_controls_pressed() -> void:
 	lobby_controls_panel.show()
 	_refresh_lobby_controls()
+	_refresh_input_state()
 
 func _on_close_lobby_controls_pressed() -> void:
 	lobby_controls_panel.hide()
+	_refresh_input_state()
 
 func _refresh_lobby_controls() -> void:
 	for child in lobby_controls_list.get_children():
@@ -445,6 +594,198 @@ func _on_kick_member_pressed(member_id, id_type: String) -> void:
 func _on_transfer_owner_pressed(member_id, id_type: String) -> void:
 	%NetworkManager.transfer_lobby_ownership(member_id, id_type)
 	_refresh_lobby_controls()
+
+func _get_local_authority_player() -> Node:
+	var players := get_node_or_null("Players")
+	if players == null:
+		return null
+
+	for player_node in players.get_children():
+		if player_node is Node and player_node.has_method("is_multiplayer_authority") and player_node.is_multiplayer_authority():
+			return player_node
+
+	return null
+
+func _initialize_match_state() -> void:
+	_player_stats.clear()
+	_kill_feed_entries.clear()
+	_scoreboard_entries.clear()
+
+	_ensure_player_stats(multiplayer.get_unique_id())
+	if multiplayer.multiplayer_peer != null:
+		for peer_id in multiplayer.get_peers():
+			_ensure_player_stats(int(peer_id))
+
+	_broadcast_scoreboard_state()
+
+func _set_scoreboard_snapshot_local(entries: Array) -> void:
+	_scoreboard_entries = entries.duplicate(true)
+	if multiplayer.multiplayer_peer != null and not multiplayer.is_server():
+		_player_stats.clear()
+		for entry in _scoreboard_entries:
+			if typeof(entry) != TYPE_DICTIONARY:
+				continue
+			var peer_id := int(entry.get("peer_id", -1))
+			if peer_id <= 0:
+				continue
+			_player_stats[peer_id] = {
+				"kills": int(entry.get("kills", 0)),
+				"deaths": int(entry.get("deaths", 0)),
+			}
+	if leaderboard_panel and leaderboard_panel.visible:
+		_refresh_pause_leaderboard()
+
+func _on_peer_disconnected_cleanup_state(peer_id: int) -> void:
+	_player_stats.erase(peer_id)
+	MultiplayerManager.clear_peer_username(peer_id)
+	_broadcast_scoreboard_state()
+	if lobby_controls_panel.visible:
+		_refresh_lobby_controls()
+
+func _on_username_changed(_peer_id: int, _username: String) -> void:
+	if lobby_controls_panel.visible:
+		_refresh_lobby_controls()
+	if leaderboard_panel.visible:
+		_refresh_pause_leaderboard()
+	if multiplayer.multiplayer_peer == null or multiplayer.is_server():
+		_broadcast_scoreboard_state()
+
+func _ensure_player_stats(peer_id: int) -> void:
+	if peer_id <= 0:
+		return
+	if _player_stats.has(peer_id):
+		return
+	_player_stats[peer_id] = {
+		"kills": 0,
+		"deaths": 0,
+	}
+
+func _get_player_display_name(peer_id: int) -> String:
+	if peer_id <= 0:
+		return "World"
+	return MultiplayerManager.get_display_name(peer_id)
+
+func _build_scoreboard_snapshot() -> Array:
+	var entries: Array = []
+	for peer_id in _player_stats.keys():
+		var stats: Dictionary = _player_stats[peer_id]
+		entries.append({
+			"peer_id": int(peer_id),
+			"name": _get_player_display_name(int(peer_id)),
+			"kills": int(stats.get("kills", 0)),
+			"deaths": int(stats.get("deaths", 0)),
+		})
+
+	entries.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
+		var kills_a := int(a.get("kills", 0))
+		var kills_b := int(b.get("kills", 0))
+		if kills_a != kills_b:
+			return kills_a > kills_b
+
+		var deaths_a := int(a.get("deaths", 0))
+		var deaths_b := int(b.get("deaths", 0))
+		if deaths_a != deaths_b:
+			return deaths_a < deaths_b
+
+		return str(a.get("name", "")).nocasecmp_to(str(b.get("name", ""))) < 0
+	)
+
+	return entries
+
+func get_scoreboard_snapshot() -> Array:
+	if not _scoreboard_entries.is_empty():
+		return _scoreboard_entries.duplicate(true)
+	return _build_scoreboard_snapshot()
+
+func get_kill_feed_snapshot() -> Array:
+	return _kill_feed_entries.duplicate(true)
+
+func _broadcast_scoreboard_state() -> void:
+	var snapshot := _build_scoreboard_snapshot()
+	_set_scoreboard_snapshot_local(snapshot)
+	if multiplayer.multiplayer_peer == null:
+		scoreboard_changed.emit(snapshot)
+		return
+	if multiplayer.is_server():
+		_sync_scoreboard_state.rpc(snapshot)
+
+@rpc("any_peer", "call_local", "reliable")
+func _sync_scoreboard_state(entries: Array) -> void:
+	_set_scoreboard_snapshot_local(entries)
+	scoreboard_changed.emit(_scoreboard_entries.duplicate(true))
+
+func _sync_match_state_to_peer(peer_id: int) -> void:
+	if peer_id <= 0:
+		return
+	if multiplayer.multiplayer_peer == null or not multiplayer.is_server():
+		return
+
+	_sync_scoreboard_state.rpc_id(peer_id, _build_scoreboard_snapshot())
+	for entry_index in range(_kill_feed_entries.size() - 1, -1, -1):
+		var entry: Dictionary = _kill_feed_entries[entry_index]
+		_sync_kill_feed_entry.rpc_id(
+			peer_id,
+			int(entry.get("killer_id", 0)),
+			int(entry.get("victim_id", 0)),
+			str(entry.get("killer_name", "World")),
+			str(entry.get("victim_name", "Unknown"))
+		)
+
+func _append_kill_feed_entry(killer_id: int, victim_id: int, killer_name: String, victim_name: String) -> void:
+	var entry := {
+		"killer_id": killer_id,
+		"victim_id": victim_id,
+		"killer_name": killer_name,
+		"victim_name": victim_name,
+	}
+	_kill_feed_entries.push_front(entry)
+	while _kill_feed_entries.size() > MAX_KILL_FEED_ENTRIES:
+		_kill_feed_entries.pop_back()
+	kill_feed_added.emit(entry)
+
+@rpc("any_peer", "call_local", "reliable")
+func _sync_kill_feed_entry(killer_id: int, victim_id: int, killer_name: String, victim_name: String) -> void:
+	_append_kill_feed_entry(killer_id, victim_id, killer_name, victim_name)
+
+@rpc("any_peer", "call_remote", "reliable")
+func report_player_death(victim_id: int, killer_id: int) -> void:
+	if multiplayer.multiplayer_peer != null and not multiplayer.is_server():
+		return
+
+	if multiplayer.multiplayer_peer != null:
+		var sender_id := multiplayer.get_remote_sender_id()
+		if sender_id > 0 and sender_id != victim_id:
+			return
+
+	_ensure_player_stats(victim_id)
+	var victim_stats: Dictionary = _player_stats.get(victim_id, {"kills": 0, "deaths": 0})
+	var victim_kills := int(victim_stats.get("kills", 0))
+	victim_stats["deaths"] = int(victim_stats.get("deaths", 0)) + 1
+	victim_stats["kills"] = int(floor(float(victim_kills) * 0.5))
+	_player_stats[victim_id] = victim_stats
+
+	var credited_killer := killer_id
+	if credited_killer <= 0 or credited_killer == victim_id:
+		credited_killer = 0
+	else:
+		_ensure_player_stats(credited_killer)
+		var killer_stats: Dictionary = _player_stats.get(credited_killer, {"kills": 0, "deaths": 0})
+		killer_stats["kills"] = int(killer_stats.get("kills", 0)) + 1
+		_player_stats[credited_killer] = killer_stats
+
+	var killer_name := _get_player_display_name(credited_killer)
+	var victim_name := _get_player_display_name(victim_id)
+
+	if multiplayer.multiplayer_peer == null:
+		_append_kill_feed_entry(credited_killer, victim_id, killer_name, victim_name)
+		var snapshot := _build_scoreboard_snapshot()
+		_set_scoreboard_snapshot_local(snapshot)
+		scoreboard_changed.emit(snapshot)
+		return
+
+	if multiplayer.is_server():
+		_sync_kill_feed_entry.rpc(credited_killer, victim_id, killer_name, victim_name)
+		_broadcast_scoreboard_state()
 
 func _show_steam_error_in_game() -> void:
 	var popup = _ensure_steam_error_popup()

@@ -22,6 +22,10 @@ extends Node3D
 @export var view_model_container : Node3D
 @export var world_model_container : Node3D
 
+const VIEW_MODEL_LAYER: int = 9
+const WORLD_MODEL_LAYER: int = 2
+const ARENA_BOUNDS_NODE_NAME := "ArenaBounds"
+
 var current_view_model : Node3D
 var current_world_model : Node3D
 var _world_model_base_local_basis: Basis = Basis.IDENTITY
@@ -200,6 +204,19 @@ func play_remote_shot_sound() -> void:
 		volume_db += occluded_shot_volume_reduction_db
 	_play_sound_internal(current_weapon.shoot_sound, volume_db)
 
+@rpc("any_peer", "call_remote", "unreliable")
+func play_remote_reload_sound() -> void:
+	if not current_weapon or not current_weapon.reload_sound:
+		return
+
+	var volume_db := 0.0
+	var sound_origin := global_position
+	if audio_stream_player and is_instance_valid(audio_stream_player):
+		sound_origin = audio_stream_player.global_position
+	if _is_sound_occluded_from_listener(sound_origin):
+		volume_db += occluded_shot_volume_reduction_db
+	_play_sound_internal(current_weapon.reload_sound, volume_db)
+
 func stop_sounds():
 	if audio_stream_player and is_instance_valid(audio_stream_player):
 		audio_stream_player.stop()
@@ -362,13 +379,15 @@ func _try_fire() -> void:
 		return
 
 	var hit_obj = bullet_cast.get_collider()
+	if _is_arena_bounds_collider(hit_obj):
+		return
 	var col_point = bullet_cast.get_collision_point()
 	var normal = bullet_cast.get_collision_normal()
 	var bullet_dir = (col_point - bullet_cast.global_position).normalized()
 	var spawn_decal := false
 
 	if hit_obj is Node and hit_obj.has_method("hurt"):
-		hit_obj.hurt.rpc_id(hit_obj.get_multiplayer_authority(), current_weapon.damage)
+		hit_obj.hurt.rpc_id(hit_obj.get_multiplayer_authority(), current_weapon.damage, multiplayer.get_unique_id())
 		sync_impact.rpc("enemy", col_point, normal, bullet_dir)
 	else:
 		if hit_obj is Node and hit_obj.has_method("request_bullet_impulse"):
@@ -393,34 +412,95 @@ func _apply_recoil() -> void:
 	var kick = Vector2(current_weapon.recoil_power.x, randf_range(-current_weapon.recoil_power.y, current_weapon.recoil_power.y))
 	camera_arm.apply_recoil(kick)
 
-@rpc("call_local")
-func play_fire_effects() -> void:
-	if not current_weapon or not current_weapon.muzzle_flash_scene:
+func _apply_single_visual_layer(node: Node, target_layer: int) -> void:
+	var single_layer_mask: int = 1 << (target_layer - 1)
+	if node is VisualInstance3D:
+		(node as VisualInstance3D).layers = single_layer_mask
+
+	for visual_node in node.find_children("*", "VisualInstance3D", true, false):
+		if visual_node is VisualInstance3D:
+			(visual_node as VisualInstance3D).layers = single_layer_mask
+
+func _spawn_muzzle_flash_at_transform(flash_scene: PackedScene, flash_transform: Transform3D, target_layer: int) -> void:
+	if flash_scene == null:
 		return
 
-	var flash = current_weapon.muzzle_flash_scene.instantiate()
-	if not (flash is Node3D):
+	var flash_instance = flash_scene.instantiate()
+	if not (flash_instance is Node3D):
 		return
-	var flash_node := flash as Node3D
 
+	var flash_node := flash_instance as Node3D
 	add_child(flash_node)
-	var anchor : Node3D = muzzle_flash_anchor if muzzle_flash_anchor else bullet_cast
-	if anchor:
-		flash_node.global_transform = anchor.global_transform
-		if not muzzle_flash_anchor and current_weapon.muzzle_flash_position != Vector3.ZERO:
-			flash_node.global_transform = flash_node.global_transform.translated_local(current_weapon.muzzle_flash_position)
+	flash_node.global_transform = flash_transform
+	_apply_single_visual_layer(flash_node, target_layer)
 
 	if flash_node is GPUParticles3D:
-		(flash_node as GPUParticles3D).emitting = true
+		var particles := flash_node as GPUParticles3D
+		particles.restart()
+		particles.emitting = true
+
+func _build_view_flash_transform() -> Transform3D:
+	var anchor: Node3D = muzzle_flash_anchor if muzzle_flash_anchor else bullet_cast
+	if anchor:
+		var flash_transform := anchor.global_transform
+		if not muzzle_flash_anchor and current_weapon and current_weapon.muzzle_flash_position != Vector3.ZERO:
+			flash_transform = flash_transform.translated_local(current_weapon.muzzle_flash_position)
+		return flash_transform
+	return global_transform
+
+func _build_world_flash_transform() -> Transform3D:
+	if not current_weapon:
+		return global_transform
+
+	if current_world_model and is_instance_valid(current_world_model):
+		var world_model_transform := current_world_model.global_transform
+		var world_flash_transform := Transform3D(world_model_transform.basis.orthonormalized(), world_model_transform.origin)
+		var flash_offset := current_weapon.world_muzzle_flash_position
+		if flash_offset == Vector3.ZERO:
+			flash_offset = current_weapon.muzzle_flash_position
+		if flash_offset != Vector3.ZERO:
+			world_flash_transform.origin = world_model_transform.origin + (world_model_transform.basis * flash_offset)
+		return world_flash_transform
+
+	return _build_view_flash_transform()
+
+@rpc("call_local")
+func play_fire_effects() -> void:
+	if not current_weapon:
+		return
+
+	if current_weapon.muzzle_flash_scene:
+		_spawn_muzzle_flash_at_transform(current_weapon.muzzle_flash_scene, _build_view_flash_transform(), VIEW_MODEL_LAYER)
+
+	var world_flash_scene := current_weapon.world_muzzle_flash_scene
+	if world_flash_scene == null:
+		world_flash_scene = current_weapon.muzzle_flash_scene
+	if world_flash_scene:
+		_spawn_muzzle_flash_at_transform(world_flash_scene, _build_world_flash_transform(), WORLD_MODEL_LAYER)
 
 @rpc("any_peer", "call_local")
 func sync_impact(type: String, pos: Vector3, normal: Vector3, dir: Vector3):
 	ImpactManager.spawn_impact(type, pos, normal, dir)
 
+func _configure_bullet_cast_exclusions() -> void:
+	if bullet_cast == null:
+		return
+	if get_tree() == null or get_tree().current_scene == null:
+		return
+	var arena_bounds := get_tree().current_scene.get_node_or_null(ARENA_BOUNDS_NODE_NAME)
+	if arena_bounds is CollisionObject3D:
+		bullet_cast.add_exception(arena_bounds)
+
+func _is_arena_bounds_collider(hit_obj: Variant) -> bool:
+	if not (hit_obj is Node):
+		return false
+	return (hit_obj as Node).name == ARENA_BOUNDS_NODE_NAME
+
 # Called when the node enters the scene tree for the first time.
 func _ready() -> void:
 	fire_rate_timer.one_shot = true
 	_resolve_world_model_container()
+	_configure_bullet_cast_exclusions()
 	if current_weapon:
 		fire_rate_timer.wait_time = max(current_weapon.fire_rate_time, 0.01)
 		if muzzle_flash_anchor:

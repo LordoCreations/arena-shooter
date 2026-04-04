@@ -38,7 +38,8 @@ vertical_alignment = 1
 [node name="Username" type="LineEdit" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
-placeholder_text = "Enter your Username"
+max_length = 50
+placeholder_text = "Enter your Username (max 50 chars)"
 alignment = 1
 
 [node name="Address" type="LineEdit" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer"]
