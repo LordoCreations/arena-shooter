@@ -12,7 +12,7 @@ corner_radius_top_right = 8
 corner_radius_bottom_right = 8
 corner_radius_bottom_left = 8
 
-[node name="InGameMenu" type="Control"]
+[node name="InGameMenu" type="Control" unique_id=1319659077]
 layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
@@ -21,11 +21,10 @@ grow_horizontal = 2
 grow_vertical = 2
 mouse_filter = 2
 
-[node name="PauseMenu" type="PanelContainer" parent="."]
+[node name="PauseMenu" type="PanelContainer" parent="." unique_id=1254579617]
 layout_mode = 1
-anchors_preset = 11
+anchors_preset = -1
 anchor_left = 0.333333
-anchor_top = 0.0
 anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
@@ -33,100 +32,123 @@ grow_vertical = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[node name="MarginContainer" type="MarginContainer" parent="PauseMenu"]
+[node name="MarginContainer" type="MarginContainer" parent="PauseMenu" unique_id=668932160]
 layout_mode = 2
 theme_override_constants/margin_left = 15
 theme_override_constants/margin_top = 15
 theme_override_constants/margin_right = 15
 theme_override_constants/margin_bottom = 15
 
-[node name="VBoxContainer" type="VBoxContainer" parent="PauseMenu/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="PauseMenu/MarginContainer" unique_id=729038949]
 layout_mode = 2
 theme_override_constants/separation = 15
 
-[node name="Label" type="Label" parent="PauseMenu/MarginContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="PauseMenu/MarginContainer/VBoxContainer" unique_id=1528035437]
 layout_mode = 2
 theme_override_font_sizes/font_size = 36
 text = "Game Menu"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="LobbyInfo" type="Label" parent="PauseMenu/MarginContainer/VBoxContainer"]
+[node name="LobbyInfo" type="Label" parent="PauseMenu/MarginContainer/VBoxContainer" unique_id=1010517612]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Lobby Info: N/A"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="UsernameRow" type="HBoxContainer" parent="PauseMenu/MarginContainer/VBoxContainer"]
+[node name="UsernameRow" type="HBoxContainer" parent="PauseMenu/MarginContainer/VBoxContainer" unique_id=576546440]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="UsernameLabel" type="Label" parent="PauseMenu/MarginContainer/VBoxContainer/UsernameRow"]
+[node name="UsernameLabel" type="Label" parent="PauseMenu/MarginContainer/VBoxContainer/UsernameRow" unique_id=2141756392]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Username"
 
-[node name="UsernameInput" type="LineEdit" parent="PauseMenu/MarginContainer/VBoxContainer/UsernameRow"]
+[node name="UsernameInput" type="LineEdit" parent="PauseMenu/MarginContainer/VBoxContainer/UsernameRow" unique_id=1192016140]
 layout_mode = 2
 size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 24
-max_length = 50
 placeholder_text = "Enter username (max 50 chars)"
+max_length = 50
 
-[node name="ApplyUsername" type="Button" parent="PauseMenu/MarginContainer/VBoxContainer/UsernameRow"]
+[node name="ApplyUsername" type="Button" parent="PauseMenu/MarginContainer/VBoxContainer/UsernameRow" unique_id=1555169031]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Apply"
 
-[node name="VolumeRow" type="HBoxContainer" parent="PauseMenu/MarginContainer/VBoxContainer"]
+[node name="VolumeRow" type="HBoxContainer" parent="PauseMenu/MarginContainer/VBoxContainer" unique_id=2072792995]
 layout_mode = 2
 theme_override_constants/separation = 10
 
-[node name="VolumeLabel" type="Label" parent="PauseMenu/MarginContainer/VBoxContainer/VolumeRow"]
+[node name="VolumeLabel" type="Label" parent="PauseMenu/MarginContainer/VBoxContainer/VolumeRow" unique_id=1221611013]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Volume"
 
-[node name="VolumeSlider" type="HSlider" parent="PauseMenu/MarginContainer/VBoxContainer/VolumeRow"]
+[node name="VolumeSlider" type="HSlider" parent="PauseMenu/MarginContainer/VBoxContainer/VolumeRow" unique_id=1739472383]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 4
 value = 100.0
 
-[node name="VolumeValue" type="Label" parent="PauseMenu/MarginContainer/VBoxContainer/VolumeRow"]
-custom_minimum_size = Vector2(70, 0)
+[node name="VolumeInput" type="LineEdit" parent="PauseMenu/MarginContainer/VBoxContainer/VolumeRow" unique_id=961386554]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+text = "100"
+alignment = 2
+
+[node name="SensitivityRow" type="HBoxContainer" parent="PauseMenu/MarginContainer/VBoxContainer" unique_id=1816175122]
+layout_mode = 2
+theme_override_constants/separation = 10
+
+[node name="SensitivityLabel" type="Label" parent="PauseMenu/MarginContainer/VBoxContainer/SensitivityRow" unique_id=278352443]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
-text = "100%"
-horizontal_alignment = 2
+text = "Mouse Sensitivity"
 
-[node name="ReturnGame" type="Button" parent="PauseMenu/MarginContainer/VBoxContainer"]
+[node name="SensitivitySlider" type="HSlider" parent="PauseMenu/MarginContainer/VBoxContainer/SensitivityRow" unique_id=1712209718]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 1
+min_value = 0.1
+max_value = 20.0
+step = 0.1
+value = 4.0
+
+[node name="SensitivityInput" type="LineEdit" parent="PauseMenu/MarginContainer/VBoxContainer/SensitivityRow" unique_id=663398333]
+custom_minimum_size = Vector2(140, 0)
+layout_mode = 2
+theme_override_font_sizes/font_size = 36
+text = "4.0"
+alignment = 2
+
+[node name="ReturnGame" type="Button" parent="PauseMenu/MarginContainer/VBoxContainer" unique_id=1952466647]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Return Game"
 
-[node name="MainMenu" type="Button" parent="PauseMenu/MarginContainer/VBoxContainer"]
+[node name="MainMenu" type="Button" parent="PauseMenu/MarginContainer/VBoxContainer" unique_id=816221614]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Main Menu"
 
-[node name="QuitGame" type="Button" parent="PauseMenu/MarginContainer/VBoxContainer"]
+[node name="QuitGame" type="Button" parent="PauseMenu/MarginContainer/VBoxContainer" unique_id=4647996]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Quit Game"
 
-[node name="LobbyControlsButton" type="Button" parent="PauseMenu/MarginContainer/VBoxContainer"]
+[node name="LobbyControlsButton" type="Button" parent="PauseMenu/MarginContainer/VBoxContainer" unique_id=481551482]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Lobby Controls"
 
-[node name="LeaderboardPanel" type="PanelContainer" parent="."]
+[node name="LeaderboardPanel" type="PanelContainer" parent="." unique_id=483552551]
 visible = false
 layout_mode = 1
-anchors_preset = 9
-anchor_left = 0.0
-anchor_top = 0.0
+anchors_preset = -1
 anchor_right = 0.333333
 anchor_bottom = 1.0
 offset_left = 12.0
@@ -136,34 +158,34 @@ offset_bottom = -12.0
 grow_vertical = 2
 theme_override_styles/panel = SubResource("StyleBoxFlat_leaderboard_bg")
 
-[node name="MarginContainer" type="MarginContainer" parent="LeaderboardPanel"]
+[node name="MarginContainer" type="MarginContainer" parent="LeaderboardPanel" unique_id=175792765]
 layout_mode = 2
 theme_override_constants/margin_left = 10
 theme_override_constants/margin_top = 10
 theme_override_constants/margin_right = 10
 theme_override_constants/margin_bottom = 10
 
-[node name="VBoxContainer" type="VBoxContainer" parent="LeaderboardPanel/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="LeaderboardPanel/MarginContainer" unique_id=514500104]
 layout_mode = 2
 theme_override_constants/separation = 8
 
-[node name="Label" type="Label" parent="LeaderboardPanel/MarginContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="LeaderboardPanel/MarginContainer/VBoxContainer" unique_id=1632004596]
 layout_mode = 2
 theme_override_font_sizes/font_size = 28
 text = "Leaderboard"
 horizontal_alignment = 1
 
-[node name="ScoreScroll" type="ScrollContainer" parent="LeaderboardPanel/MarginContainer/VBoxContainer"]
+[node name="ScoreScroll" type="ScrollContainer" parent="LeaderboardPanel/MarginContainer/VBoxContainer" unique_id=1131970553]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="ScoreRows" type="VBoxContainer" parent="LeaderboardPanel/MarginContainer/VBoxContainer/ScoreScroll"]
+[node name="ScoreRows" type="VBoxContainer" parent="LeaderboardPanel/MarginContainer/VBoxContainer/ScoreScroll" unique_id=202594916]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 theme_override_constants/separation = 4
 
-[node name="LobbyControls" type="PanelContainer" parent="."]
+[node name="LobbyControls" type="PanelContainer" parent="." unique_id=1115293900]
 visible = false
 layout_mode = 1
 anchors_preset = 8
@@ -179,33 +201,33 @@ grow_horizontal = 2
 grow_vertical = 2
 size_flags_vertical = 3
 
-[node name="MarginContainer" type="MarginContainer" parent="LobbyControls"]
+[node name="MarginContainer" type="MarginContainer" parent="LobbyControls" unique_id=1029964646]
 layout_mode = 2
 theme_override_constants/margin_left = 15
 theme_override_constants/margin_top = 15
 theme_override_constants/margin_right = 15
 theme_override_constants/margin_bottom = 15
 
-[node name="VBoxContainer" type="VBoxContainer" parent="LobbyControls/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="LobbyControls/MarginContainer" unique_id=688361862]
 layout_mode = 2
 
-[node name="Label" type="Label" parent="LobbyControls/MarginContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="LobbyControls/MarginContainer/VBoxContainer" unique_id=2064530214]
 layout_mode = 2
 theme_override_font_sizes/font_size = 36
 text = "Lobby Controls"
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="PlayerScroll" type="ScrollContainer" parent="LobbyControls/MarginContainer/VBoxContainer"]
+[node name="PlayerScroll" type="ScrollContainer" parent="LobbyControls/MarginContainer/VBoxContainer" unique_id=2118856549]
 layout_mode = 2
 size_flags_vertical = 3
 
-[node name="PlayerList" type="VBoxContainer" parent="LobbyControls/MarginContainer/VBoxContainer/PlayerScroll"]
+[node name="PlayerList" type="VBoxContainer" parent="LobbyControls/MarginContainer/VBoxContainer/PlayerScroll" unique_id=809144083]
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
 
-[node name="CloseLobbyControls" type="Button" parent="LobbyControls/MarginContainer/VBoxContainer"]
+[node name="CloseLobbyControls" type="Button" parent="LobbyControls/MarginContainer/VBoxContainer" unique_id=539977421]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Close"

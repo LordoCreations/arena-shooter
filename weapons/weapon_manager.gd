@@ -4,6 +4,8 @@ extends Node3D
 @export var current_weapon : WeaponResource
 @export var muzzle_flash_anchor_path : NodePath = NodePath("../EquipmentPivot/Hand/MuzzleFlashAnchor")
 @export var shot_max_distance: float = 70.0
+@export var shot_spread_reference_distance: float = 10.0
+@export var shot_spread_center_bias_power: float = 1.8
 @export var occluded_shot_volume_reduction_db: float = -10.0
 @export var world_model_vertical_aim_only: bool = true
 @export var world_model_pitch_scale: float = 1.0
@@ -17,6 +19,8 @@ extends Node3D
 @onready var bullet_cast : RayCast3D = $"../EquipmentPivot/Hand/BulletRayCast"
 @onready var muzzle_flash_anchor : Node3D = get_node_or_null(muzzle_flash_anchor_path) as Node3D
 @onready var camera_arm : Node = $"../SpringArm3D"
+@onready var player_camera : Camera3D = $"../SpringArm3D/Camera3D"
+@onready var crosshair_ui : Node = $"../SpringArm3D/Camera3D/Crosshair"
 @onready var player : Node = $".."
 @onready var fire_rate_timer : Timer = $FireRateTimer
 @export var view_model_container : Node3D
@@ -353,6 +357,71 @@ func _update_world_model_pitch_only_aim() -> void:
 	current_world_model.basis = target_local_basis.scaled(_world_model_base_local_scale)
 	current_world_model.position = _world_model_base_local_position
 
+func _get_shot_origin() -> Vector3:
+	if bullet_cast and is_instance_valid(bullet_cast):
+		return bullet_cast.global_position
+	if muzzle_flash_anchor and is_instance_valid(muzzle_flash_anchor):
+		return muzzle_flash_anchor.global_position
+	return global_position
+
+func _get_default_shot_direction() -> Vector3:
+	if bullet_cast and is_instance_valid(bullet_cast):
+		return -bullet_cast.global_transform.basis.z.normalized()
+	if player_camera and is_instance_valid(player_camera):
+		return -player_camera.global_transform.basis.z.normalized()
+	return -global_transform.basis.z.normalized()
+
+func _sample_crosshair_screen_point() -> Vector2:
+	var viewport := get_viewport()
+	if viewport == null:
+		return Vector2.ZERO
+
+	var center := viewport.get_visible_rect().size * 0.5
+	if crosshair_ui == null or not is_instance_valid(crosshair_ui) or not crosshair_ui.has_method("get_pixel_spread"):
+		return center
+
+	var spread_radius_px := maxf(float(crosshair_ui.call("get_pixel_spread")), 0.0)
+	if spread_radius_px <= 0.001:
+		return center
+
+	var angle := randf() * TAU
+	var radial := pow(randf(), maxf(shot_spread_center_bias_power, 0.01))
+	var spread_offset := Vector2(cos(angle), sin(angle)) * spread_radius_px * radial
+	return center + spread_offset
+
+func _perform_shot_raycast() -> Dictionary:
+	var shot_origin := _get_shot_origin()
+	var shot_direction := _get_default_shot_direction()
+
+	if player_camera and is_instance_valid(player_camera):
+		var sample_point := _sample_crosshair_screen_point()
+		var cam_ray_origin := player_camera.project_ray_origin(sample_point)
+		var cam_ray_dir := player_camera.project_ray_normal(sample_point).normalized()
+		var reference_distance := maxf(shot_spread_reference_distance, 0.1)
+		var target_on_reference_plane := cam_ray_origin + (cam_ray_dir * reference_distance)
+		var muzzle_to_target := target_on_reference_plane - shot_origin
+		if muzzle_to_target.length_squared() > 0.0001:
+			shot_direction = muzzle_to_target.normalized()
+		else:
+			shot_direction = cam_ray_dir
+
+	var shot_end := shot_origin + (shot_direction * shot_max_distance)
+	var query := PhysicsRayQueryParameters3D.create(shot_origin, shot_end)
+	if bullet_cast and is_instance_valid(bullet_cast):
+		query.collision_mask = bullet_cast.collision_mask
+
+	var exclude: Array = []
+	if player is CollisionObject3D:
+		exclude.append(player)
+	query.exclude = exclude
+
+	var hit := get_world_3d().direct_space_state.intersect_ray(query)
+	return {
+		"hit": hit,
+		"origin": shot_origin,
+		"direction": shot_direction,
+	}
+
 func _try_fire() -> void:
 	if not current_weapon:
 		return
@@ -371,19 +440,23 @@ func _try_fire() -> void:
 	if player.has_signal("firing"):
 		player.emit_signal("firing", true)
 
-	if not bullet_cast:
+	var shot_data := _perform_shot_raycast()
+	var hit: Dictionary = shot_data.get("hit", {})
+	if hit.is_empty():
 		return
 
-	bullet_cast.force_raycast_update()
-	if not bullet_cast.is_colliding():
-		return
-
-	var hit_obj = bullet_cast.get_collider()
+	var hit_obj = hit.get("collider")
 	if _is_arena_bounds_collider(hit_obj):
 		return
-	var col_point = bullet_cast.get_collision_point()
-	var normal = bullet_cast.get_collision_normal()
-	var bullet_dir = (col_point - bullet_cast.global_position).normalized()
+
+	var shot_origin: Vector3 = shot_data.get("origin", global_position)
+	var shot_direction: Vector3 = shot_data.get("direction", _get_default_shot_direction())
+	var col_point: Vector3 = hit.get("position", shot_origin)
+	var normal: Vector3 = hit.get("normal", Vector3.UP)
+	var bullet_dir := (col_point - shot_origin).normalized()
+	if bullet_dir.length_squared() <= 0.0001:
+		bullet_dir = shot_direction.normalized()
+
 	var spawn_decal := false
 
 	if hit_obj is Node and hit_obj.has_method("hurt"):

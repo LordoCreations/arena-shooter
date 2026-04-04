@@ -11,6 +11,10 @@ const LOBBY_RESULT_LIMIT := 100
 @onready var main_menu = $CanvasLayer/MainMenu
 @onready var address = $CanvasLayer/MainMenu/MarginContainer/VBoxContainer/Address
 @onready var username = $CanvasLayer/MainMenu/MarginContainer/VBoxContainer/Username
+@onready var volume_slider: HSlider = $CanvasLayer/MainMenu/MarginContainer/VBoxContainer/VolumeRow/VolumeSlider
+@onready var volume_input: LineEdit = $CanvasLayer/MainMenu/MarginContainer/VBoxContainer/VolumeRow/VolumeInput
+@onready var sensitivity_slider: HSlider = $CanvasLayer/MainMenu/MarginContainer/VBoxContainer/SensitivityRow/SensitivitySlider
+@onready var sensitivity_input: LineEdit = $CanvasLayer/MainMenu/MarginContainer/VBoxContainer/SensitivityRow/SensitivityInput
 
 # --- Steam ---
 @onready var steam_menu := $CanvasLayer/SteamHUD
@@ -28,6 +32,24 @@ func _ready() -> void:
 	username.placeholder_text = "Enter your Username (max %d chars)" % MultiplayerManager.USERNAME_MAX_LENGTH
 	if not MultiplayerManager.player_username.strip_edges().is_empty():
 		username.text = MultiplayerManager.player_username
+	_sync_volume_controls_from_master()
+	_sync_sensitivity_controls()
+
+	if volume_slider and not volume_slider.value_changed.is_connected(_on_volume_slider_value_changed):
+		volume_slider.value_changed.connect(_on_volume_slider_value_changed)
+	if volume_input:
+		if not volume_input.text_submitted.is_connected(_on_volume_input_text_submitted):
+			volume_input.text_submitted.connect(_on_volume_input_text_submitted)
+		if not volume_input.focus_exited.is_connected(_on_volume_input_focus_exited):
+			volume_input.focus_exited.connect(_on_volume_input_focus_exited)
+
+	if sensitivity_slider and not sensitivity_slider.value_changed.is_connected(_on_sensitivity_slider_value_changed):
+		sensitivity_slider.value_changed.connect(_on_sensitivity_slider_value_changed)
+	if sensitivity_input:
+		if not sensitivity_input.text_submitted.is_connected(_on_sensitivity_input_text_submitted):
+			sensitivity_input.text_submitted.connect(_on_sensitivity_input_text_submitted)
+		if not sensitivity_input.focus_exited.is_connected(_on_sensitivity_input_focus_exited):
+			sensitivity_input.focus_exited.connect(_on_sensitivity_input_focus_exited)
 
 func _show_steam_menu() -> void:
 	main_menu.hide()
@@ -218,3 +240,104 @@ func _on_steam_error_dismissed() -> void:
 
 func _on_quit_game_pressed() -> void:
 	get_tree().quit()
+
+func _sync_volume_controls_from_master() -> void:
+	var bus_idx = AudioServer.get_bus_index("Master")
+	if bus_idx < 0:
+		if volume_slider:
+			volume_slider.set_value_no_signal(100.0)
+		if volume_input:
+			volume_input.text = "100"
+		return
+
+	var volume_percent := 100.0
+	if AudioServer.is_bus_mute(bus_idx):
+		volume_percent = 0.0
+	else:
+		volume_percent = clamp(db_to_linear(AudioServer.get_bus_volume_db(bus_idx)) * 100.0, 0.0, 100.0)
+
+	var rounded: int = int(round(volume_percent))
+	if volume_slider:
+		volume_slider.set_value_no_signal(float(rounded))
+	if volume_input:
+		volume_input.text = str(rounded)
+
+func _set_master_volume_percent(value: float) -> void:
+	var clamped = clamp(value, 0.0, 100.0)
+	var bus_idx = AudioServer.get_bus_index("Master")
+	if bus_idx < 0:
+		return
+
+	if clamped <= 0.0:
+		AudioServer.set_bus_mute(bus_idx, true)
+		AudioServer.set_bus_volume_db(bus_idx, -80.0)
+	else:
+		AudioServer.set_bus_mute(bus_idx, false)
+		AudioServer.set_bus_volume_db(bus_idx, linear_to_db(clamped / 100.0))
+
+	var rounded: int = int(round(clamped))
+	if volume_slider:
+		volume_slider.set_value_no_signal(float(rounded))
+	if volume_input:
+		volume_input.text = str(rounded)
+
+func _on_volume_slider_value_changed(value: float) -> void:
+	_set_master_volume_percent(value)
+
+func _parse_float_text(raw_text: String) -> Variant:
+	var cleaned := raw_text.strip_edges().replace("%", "")
+	if cleaned.is_empty():
+		return null
+	if not cleaned.is_valid_float():
+		return null
+	return float(cleaned)
+
+func _on_volume_input_text_submitted(new_text: String) -> void:
+	_apply_volume_from_input_text(new_text)
+
+func _on_volume_input_focus_exited() -> void:
+	if volume_input == null:
+		return
+	_apply_volume_from_input_text(volume_input.text)
+
+func _apply_volume_from_input_text(raw_text: String) -> void:
+	var parsed: Variant = _parse_float_text(raw_text)
+	if parsed == null:
+		_sync_volume_controls_from_master()
+		return
+	_set_master_volume_percent(parsed)
+
+func _sync_sensitivity_controls() -> void:
+	var applied: float = MultiplayerManager.get_mouse_sensitivity_multiplier()
+	if sensitivity_slider:
+		sensitivity_slider.set_value_no_signal(applied)
+	if sensitivity_input:
+		sensitivity_input.text = "%.1f" % applied
+
+func _parse_sensitivity_text(raw_text: String) -> Variant:
+	return _parse_float_text(raw_text)
+
+func _apply_sensitivity_value(value: float) -> void:
+	var applied := MultiplayerManager.set_mouse_sensitivity_multiplier(value)
+	if sensitivity_slider:
+		sensitivity_slider.set_value_no_signal(applied)
+	if sensitivity_input:
+		sensitivity_input.text = "%.1f" % applied
+
+func _on_sensitivity_slider_value_changed(value: float) -> void:
+	_apply_sensitivity_value(value)
+
+func _on_sensitivity_input_text_submitted(new_text: String) -> void:
+	_apply_sensitivity_from_input_text(new_text)
+
+func _on_sensitivity_input_focus_exited() -> void:
+	if sensitivity_input == null:
+		return
+	_apply_sensitivity_from_input_text(sensitivity_input.text)
+
+func _apply_sensitivity_from_input_text(raw_text: String) -> void:
+	var parsed: Variant = _parse_sensitivity_text(raw_text)
+	if parsed == null:
+		_sync_sensitivity_controls()
+		return
+	_apply_sensitivity_value(parsed)

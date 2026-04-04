@@ -8,6 +8,9 @@ const USERNAME_MAX_LENGTH := 50
 const DEFAULT_USERNAME_PREFIX := "Player"
 const DEFAULT_RANDOM_MIN := 100
 const DEFAULT_RANDOM_MAX := 999
+const DEFAULT_MOUSE_SENSITIVITY_MULTIPLIER := 4.0
+const MIN_MOUSE_SENSITIVITY_MULTIPLIER := 0.1
+const MAX_MOUSE_SENSITIVITY_MULTIPLIER := 20.0
 
 var host_mode_enabled = false
 var multiplayer_mode_enabled = false
@@ -22,6 +25,7 @@ var player_username: String = ""
 var controls_enabled: bool = true
 var player_usernames: Dictionary = {}
 var _local_default_username: String = ""
+var user_mouse_sensitivity: float = DEFAULT_MOUSE_SENSITIVITY_MULTIPLIER
 
 
 func _get_or_create_local_default_username() -> String:
@@ -48,6 +52,15 @@ func sanitize_username(raw_username: String, fallback_peer_id: int = -1) -> Stri
 func set_local_preferred_username(raw_username: String, fallback_peer_id: int = -1) -> String:
 	player_username = sanitize_username(raw_username, fallback_peer_id)
 	return player_username
+
+
+func set_mouse_sensitivity_multiplier(raw_value: float) -> float:
+	user_mouse_sensitivity = clampf(raw_value, MIN_MOUSE_SENSITIVITY_MULTIPLIER, MAX_MOUSE_SENSITIVITY_MULTIPLIER)
+	return user_mouse_sensitivity
+
+
+func get_mouse_sensitivity_multiplier() -> float:
+	return user_mouse_sensitivity
 
 
 func set_local_username_and_broadcast(raw_username: String, peer_id: int = -1) -> String:

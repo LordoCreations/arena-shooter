@@ -42,17 +42,26 @@ func on_fired(f: bool):
 	if f: 
 		current_spread = clamp((current_spread + grow_increment) * grow_multiplier, reset_pos, max_spread)
 
+func get_pixel_spread() -> float:
+	return maxf(0.0, current_spread * get_viewport_rect().size.y)
+
+func reset_spread() -> void:
+	is_firing = false
+	current_spread = reset_pos
+	var pixel_spread := get_pixel_spread()
+	RIGHT.position = Vector2(pixel_spread, 0)
+	LEFT.position = Vector2(-pixel_spread, 0)
+	UP.position = Vector2(0, -pixel_spread)
+	DOWN.position = Vector2(0, pixel_spread)
+
 func _physics_process(delta: float) -> void:
 	if not is_multiplayer_authority(): return
-
-	# Get current screen height to calculate pixel offset
-	var screen_h = get_viewport_rect().size.y
 	
 	if not is_firing:
 		current_spread = lerp(current_spread, reset_pos, reset_speed * delta)
 
 	# Convert percentage to actual pixels
-	var pixel_spread = current_spread * screen_h
+	var pixel_spread = get_pixel_spread()
 
 	# Apply positions
 	RIGHT.position = RIGHT.position.lerp(Vector2(pixel_spread, 0), grow_speed * delta)

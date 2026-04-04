@@ -29,7 +29,9 @@ var popup_template_scene := preload("res://scenes/ui/menu_popup_template.tscn")
 @onready var username_input = $CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/UsernameRow/UsernameInput
 @onready var apply_username_button = $CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/UsernameRow/ApplyUsername
 @onready var volume_slider = $CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/VolumeRow/VolumeSlider
-@onready var volume_value_label = $CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/VolumeRow/VolumeValue
+@onready var volume_input = $CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/VolumeRow/VolumeInput
+@onready var sensitivity_slider = $CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/SensitivityRow/SensitivitySlider
+@onready var sensitivity_input = $CanvasLayer/InGameMenu/PauseMenu/MarginContainer/VBoxContainer/SensitivityRow/SensitivityInput
 @onready var leaderboard_panel = $CanvasLayer/InGameMenu/LeaderboardPanel
 @onready var leaderboard_rows = $CanvasLayer/InGameMenu/LeaderboardPanel/MarginContainer/VBoxContainer/ScoreScroll/ScoreRows
 @onready var lobby_controls_panel = $CanvasLayer/InGameMenu/LobbyControls
@@ -59,6 +61,7 @@ func _ready() -> void:
 	_wire_in_game_menu_signals()
 	_sync_username_input_with_profile()
 	_sync_volume_slider_from_master()
+	_sync_sensitivity_control_from_profile()
 	_setup_loot_spawning()
 	if not multiplayer.peer_connected.is_connected(_on_peer_connected_sync_loot):
 		multiplayer.peer_connected.connect(_on_peer_connected_sync_loot)
@@ -102,6 +105,21 @@ func _wire_in_game_menu_signals() -> void:
 
 	if volume_slider and not volume_slider.value_changed.is_connected(_on_volume_slider_value_changed):
 		volume_slider.value_changed.connect(_on_volume_slider_value_changed)
+
+	if volume_input:
+		if not volume_input.text_submitted.is_connected(_on_volume_input_text_submitted):
+			volume_input.text_submitted.connect(_on_volume_input_text_submitted)
+		if not volume_input.focus_exited.is_connected(_on_volume_input_focus_exited):
+			volume_input.focus_exited.connect(_on_volume_input_focus_exited)
+
+	if sensitivity_slider and not sensitivity_slider.value_changed.is_connected(_on_sensitivity_slider_value_changed):
+		sensitivity_slider.value_changed.connect(_on_sensitivity_slider_value_changed)
+
+	if sensitivity_input:
+		if not sensitivity_input.text_submitted.is_connected(_on_sensitivity_input_text_submitted):
+			sensitivity_input.text_submitted.connect(_on_sensitivity_input_text_submitted)
+		if not sensitivity_input.focus_exited.is_connected(_on_sensitivity_input_focus_exited):
+			sensitivity_input.focus_exited.connect(_on_sensitivity_input_focus_exited)
 
 func _setup_loot_spawning() -> void:
 	if loot_root == null:
@@ -350,7 +368,8 @@ func _sync_volume_slider_from_master() -> void:
 	var bus_idx = AudioServer.get_bus_index("Master")
 	if bus_idx < 0:
 		volume_slider.set_value_no_signal(100.0)
-		volume_value_label.text = "100%"
+		if volume_input:
+			volume_input.text = "100"
 		return
 
 	var volume_percent := 100.0
@@ -361,7 +380,8 @@ func _sync_volume_slider_from_master() -> void:
 
 	var rounded = int(round(volume_percent))
 	volume_slider.set_value_no_signal(float(rounded))
-	volume_value_label.text = "%d%%" % rounded
+	if volume_input:
+		volume_input.text = str(rounded)
 
 func _set_master_volume_percent(value: float) -> void:
 	var clamped = clamp(value, 0.0, 100.0)
@@ -376,10 +396,69 @@ func _set_master_volume_percent(value: float) -> void:
 		AudioServer.set_bus_mute(bus_idx, false)
 		AudioServer.set_bus_volume_db(bus_idx, linear_to_db(clamped / 100.0))
 
-	volume_value_label.text = "%d%%" % int(round(clamped))
+	var rounded: int = int(round(clamped))
+	if volume_slider:
+		volume_slider.set_value_no_signal(float(rounded))
+	if volume_input:
+		volume_input.text = str(rounded)
 
 func _on_volume_slider_value_changed(value: float) -> void:
 	_set_master_volume_percent(value)
+
+func _parse_float_text(raw_text: String) -> Variant:
+	var cleaned := raw_text.strip_edges().replace("%", "")
+	if cleaned.is_empty():
+		return null
+	if not cleaned.is_valid_float():
+		return null
+	return float(cleaned)
+
+func _on_volume_input_text_submitted(new_text: String) -> void:
+	_apply_volume_from_input_text(new_text)
+
+func _on_volume_input_focus_exited() -> void:
+	if volume_input == null:
+		return
+	_apply_volume_from_input_text(volume_input.text)
+
+func _apply_volume_from_input_text(raw_text: String) -> void:
+	var parsed: Variant = _parse_float_text(raw_text)
+	if parsed == null:
+		_sync_volume_slider_from_master()
+		return
+	_set_master_volume_percent(parsed)
+
+func _sync_sensitivity_control_from_profile() -> void:
+	var applied: float = MultiplayerManager.get_mouse_sensitivity_multiplier()
+	if sensitivity_slider:
+		sensitivity_slider.set_value_no_signal(applied)
+	if sensitivity_input:
+		sensitivity_input.text = "%.1f" % applied
+
+func _on_sensitivity_slider_value_changed(value: float) -> void:
+	_apply_sensitivity_value(value)
+
+func _on_sensitivity_input_text_submitted(new_text: String) -> void:
+	_apply_sensitivity_from_input_text(new_text)
+
+func _on_sensitivity_input_focus_exited() -> void:
+	if sensitivity_input == null:
+		return
+	_apply_sensitivity_from_input_text(sensitivity_input.text)
+
+func _apply_sensitivity_from_input_text(raw_text: String) -> void:
+	var parsed: Variant = _parse_float_text(raw_text)
+	if parsed == null:
+		_sync_sensitivity_control_from_profile()
+		return
+	_apply_sensitivity_value(parsed)
+
+func _apply_sensitivity_value(value: float) -> void:
+	var applied := MultiplayerManager.set_mouse_sensitivity_multiplier(value)
+	if sensitivity_slider:
+		sensitivity_slider.set_value_no_signal(applied)
+	if sensitivity_input:
+		sensitivity_input.text = "%.1f" % applied
 
 func _unhandled_input(_event: InputEvent) -> void:
 	if Input.is_action_just_pressed("quit"):
@@ -409,6 +488,7 @@ func _toggle_pause_menu() -> void:
 	if pause:
 		leaderboard_panel.show()
 		_sync_username_input_with_profile()
+		_sync_sensitivity_control_from_profile()
 		_update_lobby_info()
 		_refresh_pause_leaderboard()
 	else:

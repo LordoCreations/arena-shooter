@@ -1,6 +1,6 @@
 extends SpringArm3D
 
-@export var mouse_sensitivity: float = 0.005
+@export var mouse_sensitivity: float = 0.0001
 @export var lerp_speed: float = 12.0
 @export var min_pitch: float = -PI / 3
 @export var max_pitch: float = PI / 4
@@ -37,7 +37,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not MultiplayerManager.controls_enabled: return
 	
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		var sensitivity = mouse_sensitivity * (camera.fov / 90.0)
+		var user_sens := MultiplayerManager.get_mouse_sensitivity_multiplier()
+		var sensitivity = user_sens * mouse_sensitivity * (camera.fov / 90.0)
 		
 		mouse_yaw -= event.relative.x * sensitivity
 		mouse_pitch -= event.relative.y * sensitivity

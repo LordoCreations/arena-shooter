@@ -71,6 +71,7 @@ var _last_applied_network_weapon_path: String = ""
 @onready var hud_hit_flash = $SpringArm3D/Camera3D/HUD/HitFlash
 @onready var player_hud_overlay = $SpringArm3D/Camera3D/HUD/PlayerHudOverlay
 @onready var respawn_hud = $SpringArm3D/Camera3D/HUD/RespawnHUD
+@onready var crosshair = $SpringArm3D/Camera3D/Crosshair
 @onready var username_tag = $Username
 @onready var damage_bar_root = $DamageBarRoot
 @onready var damage_bar_fill = $DamageBarRoot/Fill
@@ -86,6 +87,10 @@ var _last_applied_network_weapon_path: String = ""
 @export var regen_percent_per_second: float = 0.03
 @export var world_fall_kill_y: float = -45.0
 @export var respawn_delay_seconds: float = 5.0
+@export var death_particle_burst_count: int = 7
+@export var death_particle_burst_radius: float = 0.35
+@export var death_particle_height_offset: float = 1.1
+@export var death_particle_upward_bias: float = 0.55
 @export var ik_convergence_distance: float = 90.0
 @export var ik_convergence_lerp_speed: float = 28.0
 @export var ik_hands_forward_distance: float = 0.48
@@ -1278,6 +1283,8 @@ func _start_death_state(attacker_peer_id: int) -> void:
 	_respawn_ready = false
 	_respawn_unlock_time_ms = Time.get_ticks_msec() + int(respawn_delay_seconds * 1000.0)
 	velocity = Vector3.ZERO
+	_spawn_death_particle_burst()
+	_reset_crosshair_spread()
 	_set_dead_visual_state(true)
 	weapon_manager.set_trigger_pressed(false)
 
@@ -1285,6 +1292,38 @@ func _start_death_state(attacker_peer_id: int) -> void:
 		respawn_hud.call("show_countdown", respawn_delay_seconds)
 
 	_report_death_to_world(attacker_peer_id)
+
+func _reset_crosshair_spread() -> void:
+	if not is_multiplayer_authority():
+		return
+	if crosshair and crosshair.has_method("reset_spread"):
+		crosshair.call("reset_spread")
+
+func _spawn_death_particle_burst() -> void:
+	if not is_multiplayer_authority():
+		return
+
+	var rng := RandomNumberGenerator.new()
+	rng.seed = int(Time.get_ticks_usec()) ^ (multiplayer.get_unique_id() << 8)
+	var burst_origin := global_position + Vector3.UP * death_particle_height_offset
+	var burst_count: int = max(death_particle_burst_count, 1)
+
+	for _burst_i in range(burst_count):
+		var yaw := rng.randf_range(0.0, TAU)
+		var lateral := Vector3(cos(yaw), 0.0, sin(yaw))
+		var radial_offset := rng.randf_range(0.03, death_particle_burst_radius)
+		var vertical_jitter := rng.randf_range(-0.08, 0.2)
+		var burst_pos := burst_origin + (lateral * radial_offset) + (Vector3.UP * vertical_jitter)
+		var burst_dir := (lateral * rng.randf_range(0.45, 1.0)) + (Vector3.UP * rng.randf_range(0.25, death_particle_upward_bias))
+		if burst_dir.length_squared() <= IK_EPSILON:
+			burst_dir = Vector3.UP
+		_sync_death_particle.rpc(burst_pos, Vector3.UP, burst_dir.normalized())
+
+@rpc("any_peer", "call_local", "reliable")
+func _sync_death_particle(pos: Vector3, normal: Vector3, dir: Vector3) -> void:
+	var resolved_normal := normal.normalized() if normal.length_squared() > IK_EPSILON else Vector3.UP
+	var resolved_dir := dir.normalized() if dir.length_squared() > IK_EPSILON else Vector3.UP
+	ImpactManager.spawn_impact("enemy", pos, resolved_normal, resolved_dir)
 
 func _report_death_to_world(attacker_peer_id: int) -> void:
 	var world := get_tree().current_scene
@@ -1564,6 +1603,7 @@ func spawn() -> void:
 	_respawn_unlock_time_ms = 0
 	velocity = Vector3.ZERO
 	_set_dead_visual_state(false)
+	_reset_crosshair_spread()
 	_reset_weapon_on_spawn()
 	if respawn_hud and respawn_hud.has_method("hide_hud"):
 		respawn_hud.call("hide_hud")
