@@ -98,7 +98,7 @@ custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 36
 text = "100"
-alignment = 2
+alignment = 1
 
 [node name="SensitivityRow" type="HBoxContainer" parent="PauseMenu/MarginContainer/VBoxContainer" unique_id=1816175122]
 layout_mode = 2
@@ -123,7 +123,7 @@ custom_minimum_size = Vector2(140, 0)
 layout_mode = 2
 theme_override_font_sizes/font_size = 36
 text = "4.0"
-alignment = 2
+alignment = 1
 
 [node name="ReturnGame" type="Button" parent="PauseMenu/MarginContainer/VBoxContainer" unique_id=1952466647]
 layout_mode = 2

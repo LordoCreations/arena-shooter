@@ -371,39 +371,66 @@ func _get_default_shot_direction() -> Vector3:
 		return -player_camera.global_transform.basis.z.normalized()
 	return -global_transform.basis.z.normalized()
 
-func _sample_crosshair_screen_point() -> Vector2:
+func _get_crosshair_spread_pixels() -> float:
+	if crosshair_ui == null or not is_instance_valid(crosshair_ui) or not crosshair_ui.has_method("get_pixel_spread"):
+		return 0.0
+	return maxf(float(crosshair_ui.call("get_pixel_spread")), 0.0)
+
+func _get_spread_world_radius(reference_distance: float) -> float:
+	var spread_pixels := _get_crosshair_spread_pixels()
+	if spread_pixels <= 0.001:
+		return 0.0
+
 	var viewport := get_viewport()
 	if viewport == null:
-		return Vector2.ZERO
+		return 0.0
 
-	var center := viewport.get_visible_rect().size * 0.5
-	if crosshair_ui == null or not is_instance_valid(crosshair_ui) or not crosshair_ui.has_method("get_pixel_spread"):
-		return center
+	var viewport_height := maxf(viewport.get_visible_rect().size.y, 1.0)
+	var fov_deg: float = 70.0
+	if player_camera and is_instance_valid(player_camera):
+		fov_deg = player_camera.fov
 
-	var spread_radius_px := maxf(float(crosshair_ui.call("get_pixel_spread")), 0.0)
-	if spread_radius_px <= 0.001:
-		return center
-
-	var angle := randf() * TAU
-	var radial := pow(randf(), maxf(shot_spread_center_bias_power, 0.01))
-	var spread_offset := Vector2(cos(angle), sin(angle)) * spread_radius_px * radial
-	return center + spread_offset
+	var world_height_at_distance := 2.0 * tan(deg_to_rad(fov_deg) * 0.5) * reference_distance
+	return (spread_pixels / viewport_height) * world_height_at_distance
 
 func _perform_shot_raycast() -> Dictionary:
 	var shot_origin := _get_shot_origin()
-	var shot_direction := _get_default_shot_direction()
+	var convergence_direction := _get_default_shot_direction()
 
-	if player_camera and is_instance_valid(player_camera):
-		var sample_point := _sample_crosshair_screen_point()
-		var cam_ray_origin := player_camera.project_ray_origin(sample_point)
-		var cam_ray_dir := player_camera.project_ray_normal(sample_point).normalized()
-		var reference_distance := maxf(shot_spread_reference_distance, 0.1)
-		var target_on_reference_plane := cam_ray_origin + (cam_ray_dir * reference_distance)
-		var muzzle_to_target := target_on_reference_plane - shot_origin
-		if muzzle_to_target.length_squared() > 0.0001:
-			shot_direction = muzzle_to_target.normalized()
-		else:
-			shot_direction = cam_ray_dir
+	# Keep spread centered on the same gun ray that is already converging toward the camera target.
+	if bullet_cast and is_instance_valid(bullet_cast):
+		bullet_cast.force_raycast_update()
+		if bullet_cast.is_colliding():
+			var convergence_point: Vector3 = bullet_cast.get_collision_point()
+			var to_convergence: Vector3 = convergence_point - shot_origin
+			if to_convergence.length_squared() > 0.0001:
+				convergence_direction = to_convergence.normalized()
+
+	var shot_direction := convergence_direction
+	var reference_distance := maxf(shot_spread_reference_distance, 0.1)
+	var spread_world_radius := _get_spread_world_radius(reference_distance)
+	if spread_world_radius > 0.0001:
+		var up_ref := Vector3.UP
+		if player_camera and is_instance_valid(player_camera):
+			up_ref = player_camera.global_transform.basis.y.normalized()
+
+		var spread_right := convergence_direction.cross(up_ref)
+		if spread_right.length_squared() <= 0.0001:
+			spread_right = convergence_direction.cross(Vector3.FORWARD)
+		if spread_right.length_squared() <= 0.0001:
+			spread_right = convergence_direction.cross(Vector3.RIGHT)
+		if spread_right.length_squared() <= 0.0001:
+			spread_right = Vector3.RIGHT
+		spread_right = spread_right.normalized()
+
+		var spread_up := spread_right.cross(convergence_direction).normalized()
+		var angle := randf() * TAU
+		var radial := pow(randf(), maxf(shot_spread_center_bias_power, 0.01))
+		var spread_offset := Vector2(cos(angle), sin(angle)) * (spread_world_radius * radial)
+		var spread_target := shot_origin + (convergence_direction * reference_distance) + (spread_right * spread_offset.x) + (spread_up * spread_offset.y)
+		var spread_direction := spread_target - shot_origin
+		if spread_direction.length_squared() > 0.0001:
+			shot_direction = spread_direction.normalized()
 
 	var shot_end := shot_origin + (shot_direction * shot_max_distance)
 	var query := PhysicsRayQueryParameters3D.create(shot_origin, shot_end)

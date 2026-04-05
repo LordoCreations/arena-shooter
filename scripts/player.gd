@@ -145,6 +145,7 @@ var _last_ik_gun_model_id: int = 0
 var _ik_smoothed_convergence_distance: float = -1.0
 var _ik_cached_aim_frame: int = -1
 var _ik_cached_aim_target: Vector3 = Vector3.ZERO
+var _active_health_pack_effects: Array[Dictionary] = []
 
 var _hud_fill_style: StyleBoxFlat
 var _overhead_fill_material: StandardMaterial3D
@@ -354,6 +355,8 @@ func _update_loot_prompt() -> void:
 			loot_name = "Ammo"
 		elif int(loot_type_value) == 1:
 			loot_name = "Gun"
+		elif int(loot_type_value) == 2:
+			loot_name = "Health"
 
 	_loot_prompt_label.text = "Hold [E] to open %s" % loot_name
 	_loot_prompt_label.visible = true
@@ -406,11 +409,13 @@ func _physics_process(delta: float) -> void:
 func _process(delta: float) -> void:
 	_update_respawn_hud()
 
-	if is_multiplayer_authority() and not _is_dead and health > 0.0 and health < max_health:
-		var seconds_since_damage = (Time.get_ticks_msec() - _last_damage_time_ms) / 1000.0
-		if seconds_since_damage >= regen_delay_seconds:
-			health = min(max_health, health + (max_health * regen_percent_per_second) * delta)
-			_set_local_health_ratio(health / max_health)
+	if is_multiplayer_authority() and not _is_dead:
+		_update_health_pack_effects(delta)
+		if health > 0.0 and health < max_health:
+			var seconds_since_damage = (Time.get_ticks_msec() - _last_damage_time_ms) / 1000.0
+			if seconds_since_damage >= regen_delay_seconds:
+				health = min(max_health, health + (max_health * regen_percent_per_second) * delta)
+				_set_local_health_ratio(health / max_health)
 
 	_hud_lag_ratio = move_toward(_hud_lag_ratio, _hud_health_ratio, damage_lag_speed * delta)
 	if Time.get_ticks_msec() >= _overhead_lag_hold_until_ms:
@@ -1279,6 +1284,7 @@ func _start_death_state(attacker_peer_id: int) -> void:
 		return
 
 	_is_dead = true
+	_active_health_pack_effects.clear()
 	network_is_dead = true
 	_respawn_ready = false
 	_respawn_unlock_time_ms = Time.get_ticks_msec() + int(respawn_delay_seconds * 1000.0)
@@ -1388,6 +1394,24 @@ func give_full_reserve_ammo_local() -> void:
 func give_full_reserve_ammo() -> void:
 	give_full_reserve_ammo_local()
 
+func apply_health_pack_local(immediate_heal: float, regen_heal_per_second: float, regen_duration_seconds: float) -> void:
+	if not is_multiplayer_authority() or _is_dead:
+		return
+
+	_apply_heal_amount(maxf(immediate_heal, 0.0))
+
+	var regen_rate: float = maxf(regen_heal_per_second, 0.0)
+	var regen_duration: float = maxf(regen_duration_seconds, 0.0)
+	if regen_rate > 0.0 and regen_duration > 0.0:
+		_active_health_pack_effects.append({
+			"rate": regen_rate,
+			"remaining": regen_duration,
+		})
+
+@rpc("any_peer", "call_remote", "reliable")
+func apply_health_pack(immediate_heal: float, regen_heal_per_second: float, regen_duration_seconds: float) -> void:
+	apply_health_pack_local(immediate_heal, regen_heal_per_second, regen_duration_seconds)
+
 func equip_weapon_full_from_path_local(weapon_resource_path: String) -> void:
 	if not is_multiplayer_authority():
 		return
@@ -1455,6 +1479,45 @@ func _set_local_health_ratio(ratio: float) -> void:
 	if clamped_ratio < _hud_health_ratio:
 		_hud_lag_ratio = max(_hud_lag_ratio, _hud_health_ratio)
 	_hud_health_ratio = clamped_ratio
+
+func _apply_heal_amount(amount: float) -> float:
+	if not is_multiplayer_authority():
+		return 0.0
+	if _is_dead or amount <= 0.0:
+		return 0.0
+
+	var previous_health: float = health
+	health = clampf(health + amount, 0.0, max_health)
+	if health > previous_health:
+		_set_local_health_ratio(health / max_health)
+	return health - previous_health
+
+func _update_health_pack_effects(delta: float) -> void:
+	if not is_multiplayer_authority() or _is_dead:
+		return
+	if _active_health_pack_effects.is_empty():
+		return
+
+	var total_heal: float = 0.0
+	for effect_idx in range(_active_health_pack_effects.size() - 1, -1, -1):
+		var effect: Dictionary = _active_health_pack_effects[effect_idx]
+		var remaining: float = float(effect.get("remaining", 0.0))
+		var rate: float = float(effect.get("rate", 0.0))
+		if remaining <= 0.0 or rate <= 0.0:
+			_active_health_pack_effects.remove_at(effect_idx)
+			continue
+
+		var tick_time: float = minf(delta, remaining)
+		total_heal += rate * tick_time
+		remaining -= tick_time
+		if remaining <= 0.0:
+			_active_health_pack_effects.remove_at(effect_idx)
+		else:
+			effect["remaining"] = remaining
+			_active_health_pack_effects[effect_idx] = effect
+
+	if total_heal > 0.0:
+		_apply_heal_amount(total_heal)
 
 func update_view_and_world_model_masks():
 	if is_multiplayer_authority():
@@ -1598,6 +1661,7 @@ func _ready():
 
 func spawn() -> void:
 	_is_dead = false
+	_active_health_pack_effects.clear()
 	network_is_dead = false
 	_respawn_ready = false
 	_respawn_unlock_time_ms = 0

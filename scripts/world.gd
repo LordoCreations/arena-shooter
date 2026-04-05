@@ -7,11 +7,18 @@ signal kill_feed_added(entry: Dictionary)
 var popup_template_scene := preload("res://scenes/ui/menu_popup_template.tscn")
 @export var ammo_box_scene: PackedScene = preload("res://scenes/ammo_box.tscn")
 @export var gun_box_scene: PackedScene = preload("res://scenes/gun_box.tscn")
+@export var health_box_scene: PackedScene = preload("res://scenes/health_box.tscn")
 @export var ammo_spawn_interval_seconds: float = 10.0
 @export var gun_spawn_interval_seconds: float = 30.0
+@export var health_spawn_interval_seconds: float = 10.0
 @export var gun_boxes_per_cycle: int = 2
+@export var health_boxes_per_cycle: int = 1
 @export var max_active_ammo_boxes: int = 10
 @export var max_active_gun_boxes: int = 6
+@export var max_active_health_boxes: int = 10
+@export var health_pack_instant_heal: float = 30.0
+@export var health_pack_heal_per_second: float = 10.0
+@export var health_pack_heal_duration_seconds: float = 3.0
 @export var loot_spawn_area_size_meters: Vector2 = Vector2(25.0, 25.0)
 @export var loot_drop_height: float = 8.0
 @export var loot_ground_probe_height: float = 120.0
@@ -42,12 +49,14 @@ var popup_template_scene := preload("res://scenes/ui/menu_popup_template.tscn")
 var _steam_error_popup
 var _ammo_spawn_timer: Timer
 var _gun_spawn_timer: Timer
+var _health_spawn_timer: Timer
 var _loot_id_counter: int = 1
 var _loot_nodes: Dictionary = {}
 var _loot_spawn_data: Dictionary = {}
 
 const LOOT_TYPE_AMMO := 0
 const LOOT_TYPE_GUN := 1
+const LOOT_TYPE_HEALTH := 2
 const MAX_KILL_FEED_ENTRIES := 8
 
 var _player_stats: Dictionary = {}
@@ -141,6 +150,13 @@ func _setup_loot_spawning() -> void:
 	_gun_spawn_timer.timeout.connect(_on_gun_spawn_timer_timeout)
 	add_child(_gun_spawn_timer)
 
+	_health_spawn_timer = Timer.new()
+	_health_spawn_timer.one_shot = false
+	_health_spawn_timer.autostart = true
+	_health_spawn_timer.wait_time = max(health_spawn_interval_seconds, 0.1)
+	_health_spawn_timer.timeout.connect(_on_health_spawn_timer_timeout)
+	add_child(_health_spawn_timer)
+
 func _is_loot_spawn_host() -> bool:
 	if not has_node("%NetworkManager"):
 		return false
@@ -155,6 +171,11 @@ func _on_gun_spawn_timer_timeout() -> void:
 	if not _is_loot_spawn_host():
 		return
 	_spawn_loot_batch(LOOT_TYPE_GUN, max(gun_boxes_per_cycle, 0))
+
+func _on_health_spawn_timer_timeout() -> void:
+	if not _is_loot_spawn_host():
+		return
+	_spawn_loot_batch(LOOT_TYPE_HEALTH, max(health_boxes_per_cycle, 0))
 
 func _spawn_loot_batch(loot_type: int, count: int) -> void:
 	if count <= 0:
@@ -192,6 +213,8 @@ func _get_max_loot_count_for_type(loot_type: int) -> int:
 		return max(max_active_ammo_boxes, 0)
 	if loot_type == LOOT_TYPE_GUN:
 		return max(max_active_gun_boxes, 0)
+	if loot_type == LOOT_TYPE_HEALTH:
+		return max(max_active_health_boxes, 0)
 	return 0
 
 func _get_active_loot_count_for_type(loot_type: int) -> int:
@@ -253,7 +276,13 @@ func _find_random_loot_spawn_position() -> Vector3:
 func _spawn_loot_box(loot_id: int, loot_type: int, spawn_position: Vector3, yaw: float, authority_peer_id: int, weapon_path: String = "") -> void:
 	if _loot_nodes.has(loot_id):
 		return
-	var scene: PackedScene = ammo_box_scene if loot_type == LOOT_TYPE_AMMO else gun_box_scene
+	var scene: PackedScene = null
+	if loot_type == LOOT_TYPE_AMMO:
+		scene = ammo_box_scene
+	elif loot_type == LOOT_TYPE_GUN:
+		scene = gun_box_scene
+	elif loot_type == LOOT_TYPE_HEALTH:
+		scene = health_box_scene
 	if scene == null:
 		return
 	if loot_root == null:
@@ -301,6 +330,8 @@ func consume_loot_box(loot_id: int, peer_id: int, loot_type: int) -> void:
 		if weapon_path == "":
 			weapon_path = _pick_random_weapon_path()
 		_grant_weapon_by_path(player, peer_id, weapon_path)
+	elif loot_type == LOOT_TYPE_HEALTH:
+		_grant_health_pack(player, peer_id)
 
 	if loot_node is Node3D and loot_node.has_method("sync_open_sound"):
 		var sound_origin := (loot_node as Node3D).global_position
@@ -324,6 +355,14 @@ func _grant_max_reserve_ammo(player: Node, peer_id: int) -> void:
 		return
 	if player.has_method("give_full_reserve_ammo"):
 		player.rpc_id(peer_id, "give_full_reserve_ammo")
+
+func _grant_health_pack(player: Node, peer_id: int) -> void:
+	if peer_id == multiplayer.get_unique_id():
+		if player.has_method("apply_health_pack_local"):
+			player.call("apply_health_pack_local", health_pack_instant_heal, health_pack_heal_per_second, health_pack_heal_duration_seconds)
+		return
+	if player.has_method("apply_health_pack"):
+		player.rpc_id(peer_id, "apply_health_pack", health_pack_instant_heal, health_pack_heal_per_second, health_pack_heal_duration_seconds)
 
 func _grant_weapon_by_path(player: Node, peer_id: int, weapon_path: String) -> void:
 	if weapon_path == "":

@@ -4,6 +4,7 @@ extends RigidBody3D
 enum LootType {
 	AMMO,
 	GUN,
+	HEALTH,
 }
 
 @export var loot_type: LootType = LootType.AMMO
