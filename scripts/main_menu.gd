@@ -19,6 +19,10 @@ const LOBBY_RESULT_LIMIT := 100
 # --- Steam ---
 @onready var steam_menu := $CanvasLayer/SteamHUD
 @onready var steam_lobbies := $CanvasLayer/SteamHUD/MarginContainer/Options/Lobbies/VBoxContainer
+@onready var steam_lobby_name_prompt := $CanvasLayer/SteamHUD/LobbyNamePrompt
+@onready var steam_lobby_name_input: LineEdit = $CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer/LobbyNameInput
+@onready var steam_lobby_name_cancel_button: Button = $CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer/Buttons/CancelButton
+@onready var steam_lobby_name_host_button: Button = $CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer/Buttons/HostButton
 
 var _steam_error_popup
 var _visible_lobbies: Array = []
@@ -27,9 +31,11 @@ var _using_fallback_lobby_filter: bool = false
 func _ready() -> void:
 	main_menu.show()
 	steam_menu.hide()
+	steam_lobby_name_prompt.hide()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	username.max_length = MultiplayerManager.USERNAME_MAX_LENGTH
 	username.placeholder_text = "Enter your Username (max %d chars)" % MultiplayerManager.USERNAME_MAX_LENGTH
+	steam_lobby_name_input.max_length = MultiplayerManager.LOBBY_NAME_MAX_LENGTH
 	if not MultiplayerManager.player_username.strip_edges().is_empty():
 		username.text = MultiplayerManager.player_username
 	_sync_volume_controls_from_master()
@@ -51,11 +57,19 @@ func _ready() -> void:
 		if not sensitivity_input.focus_exited.is_connected(_on_sensitivity_input_focus_exited):
 			sensitivity_input.focus_exited.connect(_on_sensitivity_input_focus_exited)
 
+	if not steam_lobby_name_input.text_submitted.is_connected(_on_steam_lobby_name_submitted):
+		steam_lobby_name_input.text_submitted.connect(_on_steam_lobby_name_submitted)
+	if not steam_lobby_name_cancel_button.pressed.is_connected(_on_steam_lobby_name_cancel_pressed):
+		steam_lobby_name_cancel_button.pressed.connect(_on_steam_lobby_name_cancel_pressed)
+	if not steam_lobby_name_host_button.pressed.is_connected(_on_steam_lobby_name_host_pressed):
+		steam_lobby_name_host_button.pressed.connect(_on_steam_lobby_name_host_pressed)
+
 func _show_steam_menu() -> void:
 	main_menu.hide()
 	steam_menu.show()
 
 func _show_main_menu() -> void:
+	steam_lobby_name_prompt.hide()
 	steam_menu.hide()
 	main_menu.show()
 
@@ -82,6 +96,7 @@ func _on_host_button_pressed() -> void:
 	MultiplayerManager.pending_action = "host"
 	MultiplayerManager.pending_address = ""
 	MultiplayerManager.pending_lobby_id = 0
+	MultiplayerManager.pending_lobby_name = ""
 	_start_game()
 
 func _on_join_button_pressed() -> void:
@@ -93,6 +108,7 @@ func _on_join_button_pressed() -> void:
 	MultiplayerManager.pending_action = "join"
 	MultiplayerManager.pending_address = address_to_join
 	MultiplayerManager.pending_lobby_id = 0
+	MultiplayerManager.pending_lobby_name = ""
 	_start_game()
 
 func join_lobby(lobby_id = 0) -> void:
@@ -101,6 +117,7 @@ func join_lobby(lobby_id = 0) -> void:
 	MultiplayerManager.pending_action = "join"
 	MultiplayerManager.pending_lobby_id = lobby_id
 	MultiplayerManager.pending_address = ""
+	MultiplayerManager.pending_lobby_name = ""
 	_start_game()
 
 func _on_join_steam_pressed() -> void:
@@ -114,6 +131,7 @@ func _on_join_steam_pressed() -> void:
 	_on_list_lobbies_pressed()
 
 func _on_steam_back_pressed() -> void:
+	steam_lobby_name_prompt.hide()
 	_clear_lobby_buttons()
 	_visible_lobbies.clear()
 	_show_main_menu()
@@ -136,14 +154,33 @@ func _request_lobby_list(use_fallback_filter: bool) -> void:
 
 func _on_host_p_2p_game_pressed() -> void:
 	_store_username()
+	if not SteamManager.initialize_steam():
+		_show_steam_error_dialog()
+		return
+	steam_lobby_name_input.text = MultiplayerManager.get_default_lobby_name()
+	steam_lobby_name_prompt.show()
+	steam_lobby_name_prompt.move_to_front()
+	steam_lobby_name_input.grab_focus()
+	steam_lobby_name_input.select_all()
+
+func _start_pending_steam_host() -> void:
+	var lobby_name := MultiplayerManager.sanitize_lobby_name(steam_lobby_name_input.text)
 	MultiplayerManager.pending_network_type = MultiplayerManager.NETWORK_TYPE.STEAM
 	MultiplayerManager.pending_action = "host"
 	MultiplayerManager.pending_address = ""
 	MultiplayerManager.pending_lobby_id = 0
-	if not SteamManager.initialize_steam():
-		_show_steam_error_dialog()
-		return
+	MultiplayerManager.pending_lobby_name = lobby_name
+	steam_lobby_name_prompt.hide()
 	_start_game()
+
+func _on_steam_lobby_name_submitted(_new_text: String) -> void:
+	_start_pending_steam_host()
+
+func _on_steam_lobby_name_cancel_pressed() -> void:
+	steam_lobby_name_prompt.hide()
+
+func _on_steam_lobby_name_host_pressed() -> void:
+	_start_pending_steam_host()
 
 func _on_lobby_match_list(lobbies: Array, _lobby_count: int = -1) -> void:
 	if lobbies.is_empty() and not _using_fallback_lobby_filter:

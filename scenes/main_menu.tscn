@@ -168,6 +168,84 @@ size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 24
 text = "Back to Main Menu"
 
+[node name="LobbyNamePrompt" type="Control" parent="CanvasLayer/SteamHUD"]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+mouse_filter = 0
+
+[node name="Backdrop" type="ColorRect" parent="CanvasLayer/SteamHUD/LobbyNamePrompt"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.45)
+
+[node name="PanelContainer" type="PanelContainer" parent="CanvasLayer/SteamHUD/LobbyNamePrompt"]
+custom_minimum_size = Vector2(620, 0)
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -310.0
+offset_top = -120.0
+offset_right = 310.0
+offset_bottom = 120.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer"]
+layout_mode = 2
+theme_override_constants/margin_left = 18
+theme_override_constants/margin_top = 18
+theme_override_constants/margin_right = 18
+theme_override_constants/margin_bottom = 18
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer"]
+layout_mode = 2
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "Name Your Steam Lobby"
+horizontal_alignment = 1
+
+[node name="Description" type="Label" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 20
+text = "This name will show in the lobby browser."
+horizontal_alignment = 1
+
+[node name="LobbyNameInput" type="LineEdit" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+placeholder_text = "Enter lobby name"
+max_length = 48
+
+[node name="Buttons" type="HBoxContainer" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer"]
+layout_mode = 2
+theme_override_constants/separation = 10
+alignment = 2
+
+[node name="CancelButton" type="Button" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Cancel"
+
+[node name="HostButton" type="Button" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
+layout_mode = 2
+theme_override_font_sizes/font_size = 22
+text = "Host"
+
 [connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/JoinButton" to="." method="_on_join_button_pressed"]
 [connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/HostButton" to="." method="_on_host_button_pressed"]
 [connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/JoinSteam" to="." method="_on_join_steam_pressed"]

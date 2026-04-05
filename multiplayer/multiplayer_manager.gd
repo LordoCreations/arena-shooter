@@ -11,6 +11,8 @@ const DEFAULT_RANDOM_MAX := 999
 const DEFAULT_MOUSE_SENSITIVITY_MULTIPLIER := 4.0
 const MIN_MOUSE_SENSITIVITY_MULTIPLIER := 0.1
 const MAX_MOUSE_SENSITIVITY_MULTIPLIER := 20.0
+const LOBBY_NAME_MAX_LENGTH := 48
+const DEFAULT_LOBBY_NAME := "Arena Shooter Lobby"
 
 var host_mode_enabled = false
 var multiplayer_mode_enabled = false
@@ -20,6 +22,7 @@ var pending_action: String = ""
 var pending_address: String = ""
 var pending_lobby_id: int = 0
 var pending_network_type: NETWORK_TYPE = NETWORK_TYPE.ENET
+var pending_lobby_name: String = ""
 
 var player_username: String = ""
 var controls_enabled: bool = true
@@ -29,6 +32,10 @@ var user_mouse_sensitivity: float = DEFAULT_MOUSE_SENSITIVITY_MULTIPLIER
 
 
 func _get_or_create_local_default_username() -> String:
+	var steam_default := _get_default_steam_username()
+	if not steam_default.is_empty():
+		return steam_default
+
 	if not _local_default_username.is_empty():
 		return _local_default_username
 
@@ -37,6 +44,12 @@ func _get_or_create_local_default_username() -> String:
 	var suffix: int = rng.randi_range(DEFAULT_RANDOM_MIN, DEFAULT_RANDOM_MAX)
 	_local_default_username = "%s%d" % [DEFAULT_USERNAME_PREFIX, suffix]
 	return _local_default_username
+
+
+func _get_default_steam_username() -> String:
+	if pending_network_type != NETWORK_TYPE.STEAM:
+		return ""
+	return sanitize_username(SteamManager.steam_username)
 
 
 func sanitize_username(raw_username: String, fallback_peer_id: int = -1) -> String:
@@ -52,6 +65,25 @@ func sanitize_username(raw_username: String, fallback_peer_id: int = -1) -> Stri
 func set_local_preferred_username(raw_username: String, fallback_peer_id: int = -1) -> String:
 	player_username = sanitize_username(raw_username, fallback_peer_id)
 	return player_username
+
+
+func sanitize_lobby_name(raw_lobby_name: String) -> String:
+	var cleaned := raw_lobby_name.strip_edges()
+	if cleaned.is_empty():
+		var preferred_username := sanitize_username(player_username)
+		if preferred_username.is_empty():
+			cleaned = DEFAULT_LOBBY_NAME
+		else:
+			cleaned = "%s's Lobby" % preferred_username
+	if cleaned.length() > LOBBY_NAME_MAX_LENGTH:
+		cleaned = cleaned.substr(0, LOBBY_NAME_MAX_LENGTH)
+	return cleaned
+
+
+func get_default_lobby_name() -> String:
+	if pending_lobby_name.strip_edges().is_empty():
+		return sanitize_lobby_name("")
+	return sanitize_lobby_name(pending_lobby_name)
 
 
 func set_mouse_sensitivity_multiplier(raw_value: float) -> float:

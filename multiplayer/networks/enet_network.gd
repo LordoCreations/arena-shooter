@@ -176,6 +176,7 @@ func _return_to_main_menu() -> void:
 	MultiplayerManager.pending_action = ""
 	MultiplayerManager.pending_address = ""
 	MultiplayerManager.pending_lobby_id = 0
+	MultiplayerManager.pending_lobby_name = ""
 	MultiplayerManager.multiplayer_mode_enabled = false
 	MultiplayerManager.host_mode_enabled = false
 	MultiplayerManager.controls_enabled = true

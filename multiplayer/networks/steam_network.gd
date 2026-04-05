@@ -1,6 +1,5 @@
 extends Node
 
-const LOBBY_NAME = "3DShooter"
 const LOBBY_MODE = "CoOP"
 const LOBBY_GAME_KEY = "game_key"
 const LOBBY_GAME_VALUE = "arena_shooter"
@@ -79,10 +78,12 @@ func _on_lobby_created(connect_status: int, lobby_id) -> void:
 		if _spawn_host_on_lobby_created:
 			_add_player_to_game(multiplayer.get_unique_id())
 
+		var lobby_name := MultiplayerManager.sanitize_lobby_name(MultiplayerManager.pending_lobby_name)
 		Steam.setLobbyJoinable(_hosted_lobby_id, true)
-		Steam.setLobbyData(_hosted_lobby_id, "name", LOBBY_NAME)
+		Steam.setLobbyData(_hosted_lobby_id, "name", lobby_name)
 		Steam.setLobbyData(_hosted_lobby_id, "mode", LOBBY_MODE)
 		Steam.setLobbyData(_hosted_lobby_id, LOBBY_GAME_KEY, LOBBY_GAME_VALUE)
+		MultiplayerManager.pending_lobby_name = ""
 	else:
 		_show_failure_popup_and_return("Host Failed", "Failed to create Steam lobby (status %s)." % connect_status, AUTO_RETURN_SECONDS)
 
@@ -196,6 +197,7 @@ func _return_to_main_menu() -> void:
 	MultiplayerManager.pending_action = ""
 	MultiplayerManager.pending_address = ""
 	MultiplayerManager.pending_lobby_id = 0
+	MultiplayerManager.pending_lobby_name = ""
 	MultiplayerManager.multiplayer_mode_enabled = false
 	MultiplayerManager.host_mode_enabled = false
 	MultiplayerManager.controls_enabled = true
