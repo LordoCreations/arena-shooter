@@ -176,6 +176,7 @@ func _return_to_main_menu() -> void:
 	MultiplayerManager.pending_action = ""
 	MultiplayerManager.pending_address = ""
 	MultiplayerManager.pending_lobby_id = 0
+	MultiplayerManager.pending_lobby_name = ""
 	MultiplayerManager.multiplayer_mode_enabled = false
 	MultiplayerManager.host_mode_enabled = false
 	MultiplayerManager.controls_enabled = true
@@ -199,7 +200,12 @@ func shutdown_lobby(_host_shutdown: bool = false) -> void:
 func _add_player_to_game(id: int) -> void:
 	if _players_spawn_node.has_node(str(id)):
 		return
-	notifications.notify("Player %s joined!" % id, false)
+
+	if id == multiplayer.get_unique_id():
+		MultiplayerManager.register_local_peer_username(id)
+
+	var joined_name := MultiplayerManager.get_display_name(id)
+	notifications.notify("%s joined!" % joined_name, false)
 
 	var player_to_add = multiplayer_scene.instantiate()
 	player_to_add.hide()
@@ -208,8 +214,13 @@ func _add_player_to_game(id: int) -> void:
 
 	_players_spawn_node.add_child(player_to_add, true)
 
+	if multiplayer.is_server() and id != multiplayer.get_unique_id():
+		MultiplayerManager.sync_all_usernames_to_peer(id)
+
 func _del_player(id: int) -> void:
-	notifications.notify("Player %s left!" % id, false)
+	var departed_name := MultiplayerManager.get_display_name(id)
+	notifications.notify("%s left!" % departed_name, false)
+	MultiplayerManager.clear_peer_username(id)
 	if not _players_spawn_node.has_node(str(id)):
 		return
 	_players_spawn_node.get_node(str(id)).queue_free()
@@ -236,7 +247,7 @@ func get_lobby_members() -> Array:
 	members.append({
 		"id": local_id,
 		"id_type": "peer",
-		"name": "Player %s" % local_id,
+		"name": MultiplayerManager.get_display_name(local_id),
 		"can_kick": false,
 		"can_transfer": false,
 	})
@@ -244,7 +255,7 @@ func get_lobby_members() -> Array:
 		members.append({
 			"id": peer_id,
 			"id_type": "peer",
-			"name": "Player %s" % peer_id,
+			"name": MultiplayerManager.get_display_name(peer_id),
 			"can_kick": multiplayer.is_server(),
 			"can_transfer": false,
 		})

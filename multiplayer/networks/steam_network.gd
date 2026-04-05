@@ -1,7 +1,9 @@
 extends Node
 
-const LOBBY_NAME = "3DShooter"
 const LOBBY_MODE = "CoOP"
+const LOBBY_GAME_KEY = "game_key"
+const LOBBY_GAME_VALUE = "arena_shooter"
+const LOBBY_RESULT_LIMIT := 100
 const JOIN_TIMEOUT_SECONDS := 3.0
 const AUTO_RETURN_SECONDS := 3.0
 var popup_template_scene := preload("res://scenes/ui/menu_popup_template.tscn")
@@ -76,9 +78,12 @@ func _on_lobby_created(connect_status: int, lobby_id) -> void:
 		if _spawn_host_on_lobby_created:
 			_add_player_to_game(multiplayer.get_unique_id())
 
+		var lobby_name := MultiplayerManager.sanitize_lobby_name(MultiplayerManager.pending_lobby_name)
 		Steam.setLobbyJoinable(_hosted_lobby_id, true)
-		Steam.setLobbyData(_hosted_lobby_id, "name", LOBBY_NAME)
+		Steam.setLobbyData(_hosted_lobby_id, "name", lobby_name)
 		Steam.setLobbyData(_hosted_lobby_id, "mode", LOBBY_MODE)
+		Steam.setLobbyData(_hosted_lobby_id, LOBBY_GAME_KEY, LOBBY_GAME_VALUE)
+		MultiplayerManager.pending_lobby_name = ""
 	else:
 		_show_failure_popup_and_return("Host Failed", "Failed to create Steam lobby (status %s)." % connect_status, AUTO_RETURN_SECONDS)
 
@@ -192,6 +197,7 @@ func _return_to_main_menu() -> void:
 	MultiplayerManager.pending_action = ""
 	MultiplayerManager.pending_address = ""
 	MultiplayerManager.pending_lobby_id = 0
+	MultiplayerManager.pending_lobby_name = ""
 	MultiplayerManager.multiplayer_mode_enabled = false
 	MultiplayerManager.host_mode_enabled = false
 	MultiplayerManager.controls_enabled = true
@@ -229,8 +235,9 @@ func shutdown_lobby(_host_shutdown: bool = false) -> void:
 
 func list_lobbies() -> void:
 	notifications.notify("Requesting lobby list...", false)
+	Steam.addRequestLobbyListResultCountFilter(LOBBY_RESULT_LIMIT)
 	Steam.addRequestLobbyListDistanceFilter(Steam.LOBBY_DISTANCE_FILTER_WORLDWIDE)
-	Steam.addRequestLobbyListStringFilter("name", "3DShooter", Steam.LOBBY_COMPARISON_EQUAL)
+	Steam.addRequestLobbyListStringFilter(LOBBY_GAME_KEY, LOBBY_GAME_VALUE, Steam.LOBBY_COMPARISON_EQUAL)
 	Steam.requestLobbyList()
 
 func get_lobby_display() -> String:
@@ -249,7 +256,7 @@ func get_lobby_members() -> Array:
 	members.append({
 		"id": local_id,
 		"id_type": "peer",
-		"name": "Player %s" % local_id,
+		"name": MultiplayerManager.get_display_name(local_id),
 		"can_kick": false,
 		"can_transfer": false,
 	})
@@ -257,7 +264,7 @@ func get_lobby_members() -> Array:
 		members.append({
 			"id": peer_id,
 			"id_type": "peer",
-			"name": "Player %s" % peer_id,
+			"name": MultiplayerManager.get_display_name(peer_id),
 			"can_kick": multiplayer.is_server(),
 			"can_transfer": false,
 		})
@@ -286,7 +293,12 @@ func transfer_lobby_ownership(member_id, id_type: String = "peer") -> void:
 func _add_player_to_game(id: int) -> void:
 	if _players_spawn_node and _players_spawn_node.has_node(str(id)):
 		return
-	notifications.notify("Player %s joined the game!" % id, true)
+
+	if id == multiplayer.get_unique_id():
+		MultiplayerManager.register_local_peer_username(id)
+
+	var joined_name := MultiplayerManager.get_display_name(id)
+	notifications.notify("%s joined the game!" % joined_name, true)
 
 	var player_to_add = multiplayer_scene.instantiate()
 	player_to_add.hide()
@@ -298,8 +310,13 @@ func _add_player_to_game(id: int) -> void:
 	else:
 		notifications.notify("Error: Spawn node not set!", true)
 
+	if multiplayer.is_server() and id != multiplayer.get_unique_id():
+		MultiplayerManager.sync_all_usernames_to_peer(id)
+
 func _del_player(id: int) -> void:
-	notifications.notify("Player %s left the game." % id, true)
+	var departed_name := MultiplayerManager.get_display_name(id)
+	notifications.notify("%s left the game." % departed_name, true)
+	MultiplayerManager.clear_peer_username(id)
 	if not _players_spawn_node or not _players_spawn_node.has_node(str(id)):
 		return
 	_players_spawn_node.get_node(str(id)).queue_free()

@@ -1,4 +1,4 @@
-[gd_resource type="Resource" script_class="WeaponResource" load_steps=7 format=3 uid="uid://danie5kuoen4g"]
+[gd_resource type="Resource" script_class="WeaponResource" format=3 uid="uid://danie5kuoen4g"]
 
 [ext_resource type="Script" uid="uid://p2tgys828nkh" path="res://weapons/weapon_resource.gd" id="1_ckfx7"]
 [ext_resource type="AudioStream" uid="uid://pspltg1gti4s" path="res://weapons/pistol/unholster_pistol.mp3" id="1_fbyut"]
@@ -9,11 +9,12 @@
 
 [resource]
 script = ExtResource("1_ckfx7")
+name = "Revolver"
 view_model = ExtResource("2_tsb7k")
 view_model_scale = Vector3(0.3, 0.3, 0.3)
 world_model = ExtResource("2_tsb7k")
-world_model_pos = Vector3(-0.3, 0, -0.05)
-world_model_rot = Vector3(3.142, 0, 0)
+world_model_pos = Vector3(0, 0.3, 0.1)
+world_model_rot = Vector3(0, -1.5707964, -1.5707964)
 world_model_scale = Vector3(0.3, 0.3, 0.3)
 view_idle_anim = "idle"
 view_equip_anim = "idle"
@@ -22,8 +23,10 @@ view_reload_anim = "reload"
 damage = 40.0
 current_ammo = 6
 magazine_capacity = 6
+max_reserve_ammo = 36
 fire_rate_time = 0.4
 muzzle_flash_position = Vector3(0, 0.122, -0.6629)
+world_muzzle_flash_position = Vector3(-1, 0.5, 0)
 shoot_sound = ExtResource("4_f2tw8")
 reload_sound = ExtResource("2_73cem")
 equip_sound = ExtResource("1_fbyut")

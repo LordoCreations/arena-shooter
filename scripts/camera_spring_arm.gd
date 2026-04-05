@@ -1,6 +1,6 @@
 extends SpringArm3D
 
-@export var mouse_sensitivity: float = 0.005
+@export var mouse_sensitivity: float = 0.0001
 @export var lerp_speed: float = 12.0
 @export var min_pitch: float = -PI / 3
 @export var max_pitch: float = PI / 4
@@ -37,15 +37,20 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not MultiplayerManager.controls_enabled: return
 	
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
-		var sensitivity = mouse_sensitivity * (camera.fov / 90.0)
+		var user_sens := MultiplayerManager.get_mouse_sensitivity_multiplier()
+		var sensitivity = user_sens * mouse_sensitivity * (camera.fov / 90.0)
 		
 		mouse_yaw -= event.relative.x * sensitivity
 		mouse_pitch -= event.relative.y * sensitivity
 		mouse_pitch = clamp(mouse_pitch, min_pitch, max_pitch)
 
 	if event.is_action_pressed("aim"):
-		# PREVENT ADS WHILE SPRINTING
-		if get_parent().is_sprinting: return 
+		var player_node := get_parent()
+		if player_node and bool(player_node.get("is_sprinting")):
+			if player_node.has_method("cancel_sprint_for_ads"):
+				player_node.call("cancel_sprint_for_ads")
+			else:
+				player_node.set("is_sprinting", false)
 		start_aim()
 	elif event.is_action_released("aim"):
 		stop_aim()

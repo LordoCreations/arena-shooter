@@ -2,19 +2,20 @@ class_name WeaponResource
 extends Resource
 
 var weapon_manager : WeaponManager
+@export var name : String
 
 # First Person Perspective
 @export var view_model : PackedScene
 
 @export var view_model_pos : Vector3
-@export var view_model_rot : Vector3
+@export var view_model_rot : Vector3 = Vector3.ZERO
 @export var view_model_scale := Vector3(1,1,1)
 
 # Third Person Perspective
 @export var world_model : PackedScene
 
 @export var world_model_pos : Vector3
-@export var world_model_rot : Vector3
+@export var world_model_rot : Vector3 = Vector3.ZERO
 @export var world_model_scale := Vector3(1,1,1)
 
 # Animations
@@ -34,6 +35,8 @@ var weapon_manager : WeaponManager
 @export var ads_fov: float = 50.0
 @export var muzzle_flash_scene: PackedScene = preload("res://weapons/vfx/muzzle_flash.tscn")
 @export var muzzle_flash_position: Vector3 = Vector3.ZERO
+@export var world_muzzle_flash_scene: PackedScene = preload("res://weapons/vfx/muzzle_flash.tscn")
+@export var world_muzzle_flash_position: Vector3 = Vector3.ZERO
 
 # Weapon Sounds
 @export var shoot_sound : AudioStream
@@ -117,6 +120,7 @@ func reload_pressed() -> void:
 		weapon_manager.play_anim(view_reload_anim)
 		weapon_manager.queue_anim(view_idle_anim)
 	weapon_manager.play_sound(reload_sound)
+	weapon_manager.play_remote_reload_sound.rpc()
 	if reload_duration <= 0.0:
 		reload()
 		return
