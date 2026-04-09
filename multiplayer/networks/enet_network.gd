@@ -235,8 +235,8 @@ func get_local_ip() -> String:
 
 func get_lobby_display() -> String:
 	if multiplayer.is_server():
-		return "%s:%s" % [get_local_ip(), SERVER_PORT]
-	return "%s:%s" % [SERVER_IP, SERVER_PORT]
+		return get_local_ip()
+	return SERVER_IP
 
 func is_host() -> bool:
 	return multiplayer.is_server()

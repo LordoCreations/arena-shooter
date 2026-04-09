@@ -9,6 +9,7 @@ const LOBBY_RESULT_LIMIT := 100
 
 # --- Menu ---
 @onready var main_menu = $CanvasLayer/MainMenu
+@onready var instructions_menu = $CanvasLayer/InstructionsMenu
 @onready var address = $CanvasLayer/MainMenu/MarginContainer/VBoxContainer/Address
 @onready var username = $CanvasLayer/MainMenu/MarginContainer/VBoxContainer/Username
 @onready var volume_slider: HSlider = $CanvasLayer/MainMenu/MarginContainer/VBoxContainer/VolumeRow/VolumeSlider
@@ -30,6 +31,7 @@ var _using_fallback_lobby_filter: bool = false
 
 func _ready() -> void:
 	main_menu.show()
+	instructions_menu.hide()
 	steam_menu.hide()
 	steam_lobby_name_prompt.hide()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -66,12 +68,23 @@ func _ready() -> void:
 
 func _show_steam_menu() -> void:
 	main_menu.hide()
+	instructions_menu.hide()
 	steam_menu.show()
 
 func _show_main_menu() -> void:
+	instructions_menu.hide()
 	steam_lobby_name_prompt.hide()
 	steam_menu.hide()
 	main_menu.show()
+
+func _on_instructions_pressed() -> void:
+	main_menu.hide()
+	steam_lobby_name_prompt.hide()
+	steam_menu.hide()
+	instructions_menu.show()
+
+func _on_instructions_back_pressed() -> void:
+	_show_main_menu()
 
 func _connect_lobby_signals() -> void:
 	var match_list_signal = Steam.lobby_match_list

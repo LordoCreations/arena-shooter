@@ -46,7 +46,7 @@ theme_override_constants/separation = 15
 [node name="Label" type="Label" parent="PauseMenu/MarginContainer/VBoxContainer" unique_id=1528035437]
 layout_mode = 2
 theme_override_font_sizes/font_size = 36
-text = "Game Menu"
+text = "AstroShooter Game Menu"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -128,7 +128,7 @@ alignment = 1
 [node name="ReturnGame" type="Button" parent="PauseMenu/MarginContainer/VBoxContainer" unique_id=1952466647]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
-text = "Return Game"
+text = "Return to Game"
 
 [node name="MainMenu" type="Button" parent="PauseMenu/MarginContainer/VBoxContainer" unique_id=816221614]
 layout_mode = 2

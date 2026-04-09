@@ -1,6 +1,7 @@
 [gd_scene format=3 uid="uid://c7rtwcphb0nj4"]
 
 [ext_resource type="Script" uid="uid://c7a5ug2tbv066" path="res://scripts/main_menu.gd" id="1_2x5kc"]
+[ext_resource type="Texture2D" uid="uid://bttgcfk8b8ayh" path="res://assets/ui/Instructions.png" id="2_u1a0k"]
 
 [node name="MainMenu" type="Node" unique_id=1951136013]
 script = ExtResource("1_2x5kc")
@@ -30,7 +31,7 @@ theme_override_constants/separation = 15
 [node name="Label" type="Label" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer" unique_id=624178849]
 layout_mode = 2
 theme_override_font_sizes/font_size = 36
-text = "Arena Shooter (alpha)"
+text = "Astro Shooter v1.0"
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -109,12 +110,60 @@ text = "Host LAN"
 [node name="JoinSteam" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer" unique_id=368003801]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
-text = "Use Steam"
+text = "Use Steam Multiplayer"
+
+[node name="InstructionsButton" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer" unique_id=471982311]
+layout_mode = 2
+theme_override_font_sizes/font_size = 24
+text = "Instructions"
 
 [node name="QuitGame" type="Button" parent="CanvasLayer/MainMenu/MarginContainer/VBoxContainer" unique_id=168824843]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 text = "Quit Game"
+
+[node name="InstructionsMenu" type="PanelContainer" parent="CanvasLayer" unique_id=1570049722]
+visible = false
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/InstructionsMenu" unique_id=1139029947]
+layout_mode = 2
+theme_override_constants/margin_left = 15
+theme_override_constants/margin_top = 15
+theme_override_constants/margin_right = 15
+theme_override_constants/margin_bottom = 15
+
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/InstructionsMenu/MarginContainer" unique_id=214406370]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+theme_override_constants/separation = 12
+
+[node name="Title" type="Label" parent="CanvasLayer/InstructionsMenu/MarginContainer/VBoxContainer" unique_id=1177093939]
+layout_mode = 2
+theme_override_font_sizes/font_size = 30
+text = "Instructions"
+horizontal_alignment = 1
+
+[node name="InstructionsImage" type="TextureRect" parent="CanvasLayer/InstructionsMenu/MarginContainer/VBoxContainer" unique_id=949355460]
+layout_mode = 2
+size_flags_horizontal = 3
+size_flags_vertical = 3
+texture = ExtResource("2_u1a0k")
+expand_mode = 1
+stretch_mode = 5
+
+[node name="BackToMainMenu" type="Button" parent="CanvasLayer/InstructionsMenu/MarginContainer/VBoxContainer" unique_id=942818948]
+layout_mode = 2
+size_flags_horizontal = 3
+theme_override_font_sizes/font_size = 24
+text = "Back to Main Menu"
 
 [node name="SteamHUD" type="PanelContainer" parent="CanvasLayer" unique_id=242852574]
 visible = false
@@ -168,17 +217,11 @@ size_flags_horizontal = 3
 theme_override_font_sizes/font_size = 24
 text = "Back to Main Menu"
 
-[node name="LobbyNamePrompt" type="Control" parent="CanvasLayer/SteamHUD"]
+[node name="LobbyNamePrompt" type="Control" parent="CanvasLayer/SteamHUD" unique_id=2110334136]
 visible = false
-layout_mode = 1
-anchors_preset = 15
-anchor_right = 1.0
-anchor_bottom = 1.0
-grow_horizontal = 2
-grow_vertical = 2
-mouse_filter = 0
+layout_mode = 2
 
-[node name="Backdrop" type="ColorRect" parent="CanvasLayer/SteamHUD/LobbyNamePrompt"]
+[node name="Backdrop" type="ColorRect" parent="CanvasLayer/SteamHUD/LobbyNamePrompt" unique_id=1191899639]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -187,7 +230,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0, 0, 0, 0.45)
 
-[node name="PanelContainer" type="PanelContainer" parent="CanvasLayer/SteamHUD/LobbyNamePrompt"]
+[node name="PanelContainer" type="PanelContainer" parent="CanvasLayer/SteamHUD/LobbyNamePrompt" unique_id=2079553148]
 custom_minimum_size = Vector2(620, 0)
 layout_mode = 1
 anchors_preset = 8
@@ -202,46 +245,46 @@ offset_bottom = 120.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer"]
+[node name="MarginContainer" type="MarginContainer" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer" unique_id=820528905]
 layout_mode = 2
 theme_override_constants/margin_left = 18
 theme_override_constants/margin_top = 18
 theme_override_constants/margin_right = 18
 theme_override_constants/margin_bottom = 18
 
-[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer" unique_id=929003153]
 layout_mode = 2
 theme_override_constants/separation = 12
 
-[node name="Title" type="Label" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer"]
+[node name="Title" type="Label" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer" unique_id=216898359]
 layout_mode = 2
 theme_override_font_sizes/font_size = 30
 text = "Name Your Steam Lobby"
 horizontal_alignment = 1
 
-[node name="Description" type="Label" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer"]
+[node name="Description" type="Label" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer" unique_id=1660628355]
 layout_mode = 2
 theme_override_font_sizes/font_size = 20
 text = "This name will show in the lobby browser."
 horizontal_alignment = 1
 
-[node name="LobbyNameInput" type="LineEdit" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer"]
+[node name="LobbyNameInput" type="LineEdit" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer" unique_id=1248203780]
 layout_mode = 2
 theme_override_font_sizes/font_size = 24
 placeholder_text = "Enter lobby name"
 max_length = 48
 
-[node name="Buttons" type="HBoxContainer" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer"]
+[node name="Buttons" type="HBoxContainer" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer" unique_id=852923050]
 layout_mode = 2
 theme_override_constants/separation = 10
 alignment = 2
 
-[node name="CancelButton" type="Button" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
+[node name="CancelButton" type="Button" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer/Buttons" unique_id=333207451]
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Cancel"
 
-[node name="HostButton" type="Button" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer/Buttons"]
+[node name="HostButton" type="Button" parent="CanvasLayer/SteamHUD/LobbyNamePrompt/PanelContainer/MarginContainer/VBoxContainer/Buttons" unique_id=811046987]
 layout_mode = 2
 theme_override_font_sizes/font_size = 22
 text = "Host"
@@ -249,7 +292,9 @@ text = "Host"
 [connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/JoinButton" to="." method="_on_join_button_pressed"]
 [connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/HostButton" to="." method="_on_host_button_pressed"]
 [connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/JoinSteam" to="." method="_on_join_steam_pressed"]
+[connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/InstructionsButton" to="." method="_on_instructions_pressed"]
 [connection signal="pressed" from="CanvasLayer/MainMenu/MarginContainer/VBoxContainer/QuitGame" to="." method="_on_quit_game_pressed"]
+[connection signal="pressed" from="CanvasLayer/InstructionsMenu/MarginContainer/VBoxContainer/BackToMainMenu" to="." method="_on_instructions_back_pressed"]
 [connection signal="pressed" from="CanvasLayer/SteamHUD/MarginContainer/Options/HostP2PGame" to="." method="_on_host_p_2p_game_pressed"]
 [connection signal="pressed" from="CanvasLayer/SteamHUD/MarginContainer/Options/ListLobbies" to="." method="_on_list_lobbies_pressed"]
 [connection signal="pressed" from="CanvasLayer/SteamHUD/MarginContainer/Options/BackToMenu" to="." method="_on_steam_back_pressed"]
