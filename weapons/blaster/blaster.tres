@@ -14,6 +14,7 @@ view_model = ExtResource("6_tdi56")
 view_model_pos = Vector3(0.5, 0, 0)
 view_model_scale = Vector3(0.45, 0.45, 0.45)
 world_model = ExtResource("6_tdi56")
+world_model_pos = Vector3(-0.04, 0, 0)
 world_model_rot = Vector3(0, -1.5707964, -1.5707964)
 world_model_scale = Vector3(0.45, 0.45, 0.45)
 view_idle_anim = "idle"

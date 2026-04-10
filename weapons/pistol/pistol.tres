@@ -11,11 +11,11 @@
 script = ExtResource("1_ckfx7")
 name = "Revolver"
 view_model = ExtResource("2_tsb7k")
-view_model_scale = Vector3(0.3, 0.3, 0.3)
+view_model_scale = Vector3(0.4, 0.4, 0.4)
 world_model = ExtResource("2_tsb7k")
-world_model_pos = Vector3(0, 0.3, 0.1)
-world_model_rot = Vector3(0, -1.5707964, -1.5707964)
-world_model_scale = Vector3(0.3, 0.3, 0.3)
+world_model_pos = Vector3(-0.04, 0.35, 0.1)
+world_model_rot = Vector3(0, 0, -1.571)
+world_model_scale = Vector3(0.4, 0.4, 0.4)
 view_idle_anim = "idle"
 view_equip_anim = "idle"
 view_shoot_anim = "shoot"
