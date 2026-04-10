@@ -112,6 +112,8 @@ var _last_applied_network_weapon_path: String = ""
 @export var ik_close_hold_on_up_pitch: float = 0.08
 @export var ik_elbow_drop_on_up_pitch: float = 0.45
 @export var ik_hand_forearm_follow: float = 0.35
+@export var ik_hand_roll_offset_degrees: float = 0.0
+@export var ik_lock_gun_vertical: bool = true
 
 var _loot_prompt_label: Label
 const LOOT_INTERACT_DISTANCE := 2.4
@@ -134,14 +136,29 @@ var _hud_hit_flash_strength: float = 0.0
 var _overhead_hit_flash_strength: float = 0.0
 var _arm_ik_blend: float = 0.0
 var _ik_setup_complete: bool = false
-var _left_arm_chain := {}
-var _right_arm_chain := {}
 var _ik_forward_sign: float = 1.0
-var _right_hand_gun_basis_offset: Basis = Basis.IDENTITY
-var _left_hand_gun_basis_offset: Basis = Basis.IDENTITY
+var _right_upper_arm_bone_idx: int = -1
+var _left_upper_arm_bone_idx: int = -1
+var _right_hand_bone_idx: int = -1
+var _left_hand_bone_idx: int = -1
+var _right_arm_ik_modifier: Node = null
+var _left_arm_ik_modifier: Node = null
+var _right_ik_target: Node3D = null
+var _left_ik_target: Node3D = null
+var _right_ik_pole: Node3D = null
+var _left_ik_pole: Node3D = null
+var _right_hand_parallel_basis_offset: Basis = Basis.IDENTITY
+var _ik_last_gun_model_id: int = 0
+var _ik_cached_weapon_world_model_rot: Vector3 = Vector3.ZERO
+var _ik_right_hand_to_gun_basis_offset: Basis = Basis.IDENTITY
+var _ik_gun_basis_offset_ready: bool = false
 var _right_hand_axis_map := {}
 var _left_hand_axis_map := {}
-var _last_ik_gun_model_id: int = 0
+var _parallel_hand_offset_ready: bool = false
+var _parallel_hand_desired_basis: Basis = Basis.IDENTITY
+var _parallel_hand_orientation_active: bool = false
+var _ik_modifier_signal_connected: bool = false
+var _ik_unavailable_warned: bool = false
 var _ik_smoothed_convergence_distance: float = -1.0
 var _ik_cached_aim_frame: int = -1
 var _ik_cached_aim_target: Vector3 = Vector3.ZERO
@@ -440,154 +457,212 @@ func _setup_upper_body_ik() -> void:
 	_ik_setup_complete = false
 	if character_skeleton == null:
 		return
-	var right_hand_idx := character_skeleton.find_bone("Hand.R")
-	var left_hand_idx := character_skeleton.find_bone("Hand.L")
-	var right_hand_leaf_idx := character_skeleton.find_bone("Hand.R_leaf")
-	var left_hand_leaf_idx := character_skeleton.find_bone("Hand.L_leaf")
-	var right_tip_idx := right_hand_idx if right_hand_idx >= 0 else character_skeleton.find_bone("LowerArm.R_leaf")
-	var left_tip_idx := left_hand_idx if left_hand_idx >= 0 else character_skeleton.find_bone("LowerArm.L_leaf")
-
-	_right_arm_chain = {
-		"side": "right",
-		"upper": character_skeleton.find_bone("UpperArm.R"),
-		"lower": character_skeleton.find_bone("LowerArm.R"),
-		"hand": right_hand_idx,
-		"leaf": right_hand_leaf_idx,
-		"tip": right_tip_idx,
-	}
-	_left_arm_chain = {
-		"side": "left",
-		"upper": character_skeleton.find_bone("UpperArm.L"),
-		"lower": character_skeleton.find_bone("LowerArm.L"),
-		"hand": left_hand_idx,
-		"leaf": left_hand_leaf_idx,
-		"tip": left_tip_idx,
-	}
-
-	var right_valid := int(_right_arm_chain.get("upper", -1)) >= 0 and int(_right_arm_chain.get("lower", -1)) >= 0 and int(_right_arm_chain.get("tip", -1)) >= 0
-	var left_valid := int(_left_arm_chain.get("upper", -1)) >= 0 and int(_left_arm_chain.get("lower", -1)) >= 0 and int(_left_arm_chain.get("tip", -1)) >= 0
-	_ik_setup_complete = right_valid and left_valid
-	if _ik_setup_complete:
-		_detect_ik_forward_sign()
-		_cache_hand_gun_basis_offsets()
-		_cache_hand_axis_maps()
-
-func _detect_ik_forward_sign() -> void:
-	# This character rig is authored facing negative Z, so keep forward fixed.
-	_ik_forward_sign = 1.0
-
-func _get_gun_world_basis_for_ik() -> Basis:
-	# Build a stable world basis that points directly toward the actual shot/aim target.
-	var aim_origin: Vector3 = global_transform.origin
-	if weapon_manager and weapon_manager.current_world_model and is_instance_valid(weapon_manager.current_world_model):
-		aim_origin = weapon_manager.current_world_model.global_transform.origin
-	elif equipment and is_instance_valid(equipment):
-		aim_origin = equipment.global_transform.origin
-	elif camera and is_instance_valid(camera):
-		aim_origin = camera.global_transform.origin
-
-	var aim_target: Vector3 = _get_ik_aim_target_world_position()
-	var aim_forward: Vector3 = aim_target - aim_origin
-	if aim_forward.length_squared() <= IK_EPSILON:
-		if camera and is_instance_valid(camera):
-			aim_forward = -camera.global_transform.basis.z
-		elif equipment and is_instance_valid(equipment):
-			aim_forward = -equipment.global_transform.basis.z
-		else:
-			aim_forward = -global_transform.basis.z
-	aim_forward = aim_forward.normalized()
-
-	var up_ref: Vector3 = visuals.global_transform.basis.y.normalized()
-	if absf(up_ref.dot(aim_forward)) > 0.98:
-		up_ref = Vector3.UP if absf(Vector3.UP.dot(aim_forward)) < 0.98 else Vector3.RIGHT
-	var aim_right: Vector3 = up_ref.cross(aim_forward)
-	if aim_right.length_squared() <= IK_EPSILON:
-		aim_right = camera.global_transform.basis.x if camera and is_instance_valid(camera) else Vector3.RIGHT
-	aim_right = aim_right.normalized()
-	var aim_up: Vector3 = aim_forward.cross(aim_right).normalized()
-	return Basis(aim_right, aim_up, -aim_forward).orthonormalized()
-
-func _cache_hand_gun_basis_offsets() -> void:
-	if character_skeleton == null:
-		return
-	var gun_basis := _get_gun_world_basis_for_ik()
-	if gun_basis.determinant() == 0.0:
+	if not ClassDB.class_exists("TwoBoneIK3D"):
+		if not _ik_unavailable_warned:
+			_ik_unavailable_warned = true
+			push_warning("TwoBoneIK3D is unavailable. Use Godot 4.6+ to enable upper-body IK.")
 		return
 
-	_right_hand_gun_basis_offset = _compute_hand_gun_basis_offset(_right_arm_chain, gun_basis)
-	_left_hand_gun_basis_offset = _compute_hand_gun_basis_offset(_left_arm_chain, gun_basis)
-
-func _cache_hand_axis_maps() -> void:
-	if character_skeleton == null:
+	_right_upper_arm_bone_idx = character_skeleton.find_bone("UpperArm.R")
+	_left_upper_arm_bone_idx = character_skeleton.find_bone("UpperArm.L")
+	_right_hand_bone_idx = character_skeleton.find_bone("Hand.R")
+	_left_hand_bone_idx = character_skeleton.find_bone("Hand.L")
+	var right_lower_arm_bone_idx := character_skeleton.find_bone("LowerArm.R")
+	var left_lower_arm_bone_idx := character_skeleton.find_bone("LowerArm.L")
+	if _right_upper_arm_bone_idx < 0 or _left_upper_arm_bone_idx < 0 or _right_hand_bone_idx < 0 or _left_hand_bone_idx < 0 or right_lower_arm_bone_idx < 0 or left_lower_arm_bone_idx < 0:
 		return
-	var right_root_world := _get_arm_root_world_position(_right_arm_chain)
-	var left_root_world := _get_arm_root_world_position(_left_arm_chain)
-	var shoulder_center_world: Vector3 = (right_root_world + left_root_world) * 0.5
-	var model_up: Vector3 = visuals.global_transform.basis.y.normalized()
 
-	_right_hand_axis_map = _compute_hand_axis_map(_right_arm_chain, shoulder_center_world, model_up)
-	_left_hand_axis_map = _compute_hand_axis_map(_left_arm_chain, shoulder_center_world, model_up)
-	_right_arm_chain["axis_map"] = _right_hand_axis_map
-	_left_arm_chain["axis_map"] = _left_hand_axis_map
+	var right_end_bone_name := _resolve_arm_end_bone_name("Hand.R", "Hand.R_leaf", "LowerArm.R_leaf")
+	var left_end_bone_name := _resolve_arm_end_bone_name("Hand.L", "Hand.L_leaf", "LowerArm.L_leaf")
+	if right_end_bone_name == "" or left_end_bone_name == "":
+		return
 
-func _compute_hand_axis_map(chain: Dictionary, shoulder_center_world: Vector3, model_up: Vector3) -> Dictionary:
-	var hand_idx := int(chain.get("hand", -1))
-	if hand_idx < 0:
-		return {}
+	_right_ik_target = _ensure_ik_anchor_node("IKRightHandTarget")
+	_left_ik_target = _ensure_ik_anchor_node("IKLeftHandTarget")
+	_right_ik_pole = _ensure_ik_anchor_node("IKRightElbowPole")
+	_left_ik_pole = _ensure_ik_anchor_node("IKLeftElbowPole")
 
-	var hand_rest: Transform3D
+	_right_arm_ik_modifier = _ensure_two_bone_ik_modifier("IKRightArm")
+	_left_arm_ik_modifier = _ensure_two_bone_ik_modifier("IKLeftArm")
+	if _right_arm_ik_modifier == null or _left_arm_ik_modifier == null:
+		return
+
+	_configure_two_bone_ik_modifier(
+		_right_arm_ik_modifier,
+		"UpperArm.R",
+		"LowerArm.R",
+		right_end_bone_name,
+		_right_ik_target,
+		_right_ik_pole,
+		Vector3.RIGHT
+	)
+	_configure_two_bone_ik_modifier(
+		_left_arm_ik_modifier,
+		"UpperArm.L",
+		"LowerArm.L",
+		left_end_bone_name,
+		_left_ik_target,
+		_left_ik_pole,
+		Vector3.LEFT
+	)
+	_connect_parallel_hand_orientation_signal()
+	_cache_parallel_hand_basis_offset()
+	_refresh_ik_gun_basis_offset_if_needed()
+
+	_detect_ik_forward_sign()
+	_ik_setup_complete = true
+
+func _resolve_arm_end_bone_name(primary_bone_name: String, fallback_bone_name: String, secondary_fallback_bone_name: String = "") -> String:
+	if character_skeleton.find_bone(primary_bone_name) >= 0:
+		return primary_bone_name
+	if character_skeleton.find_bone(fallback_bone_name) >= 0:
+		return fallback_bone_name
+	if secondary_fallback_bone_name != "" and character_skeleton.find_bone(secondary_fallback_bone_name) >= 0:
+		return secondary_fallback_bone_name
+	return ""
+
+func _ensure_ik_anchor_node(node_name: String) -> Node3D:
+	var existing := character_skeleton.get_node_or_null(node_name)
+	if existing is Node3D:
+		return existing as Node3D
+	if existing:
+		existing.queue_free()
+
+	var anchor := Node3D.new()
+	anchor.name = node_name
+	character_skeleton.add_child(anchor)
+	return anchor
+
+func _ensure_two_bone_ik_modifier(node_name: String) -> Node:
+	var existing := character_skeleton.get_node_or_null(node_name)
+	if existing and existing.get_class() == "TwoBoneIK3D":
+		return existing
+	if existing:
+		existing.queue_free()
+
+	var modifier_object: Object = ClassDB.instantiate("TwoBoneIK3D")
+	if not (modifier_object is Node):
+		return null
+	var modifier := modifier_object as Node
+	modifier.name = node_name
+	character_skeleton.add_child(modifier)
+	return modifier
+
+func _configure_two_bone_ik_modifier(modifier: Node, root_bone_name: String, middle_bone_name: String, end_bone_name: String, target_node: Node3D, pole_node: Node3D, preferred_world_pole_dir: Vector3) -> void:
+	modifier.call("set_setting_count", 1)
+	modifier.call("set_root_bone_name", 0, root_bone_name)
+	modifier.call("set_middle_bone_name", 0, middle_bone_name)
+	modifier.call("set_end_bone_name", 0, end_bone_name)
+	modifier.call("set_target_node", 0, modifier.get_path_to(target_node))
+	modifier.call("set_pole_node", 0, modifier.get_path_to(pole_node))
+	modifier.call("set_pole_direction", 0, SkeletonModifier3D.SECONDARY_DIRECTION_CUSTOM)
+	modifier.call("set_pole_direction_vector", 0, _compute_middle_bone_local_pole_vector(middle_bone_name, preferred_world_pole_dir))
+	modifier.set("active", true)
+	modifier.set("influence", 1.0)
+	if modifier.has_method("reset"):
+		modifier.call("reset")
+
+func _compute_middle_bone_local_pole_vector(middle_bone_name: String, preferred_world_pole_dir: Vector3) -> Vector3:
+	var middle_bone_idx := character_skeleton.find_bone(middle_bone_name)
+	if middle_bone_idx < 0:
+		return Vector3.UP
+
+	var world_direction := preferred_world_pole_dir.normalized()
+	if world_direction.length_squared() <= IK_EPSILON:
+		world_direction = Vector3.UP
+
+	var middle_pose: Transform3D
 	if character_skeleton.has_method("get_bone_global_rest"):
-		hand_rest = character_skeleton.get_bone_global_rest(hand_idx)
+		middle_pose = character_skeleton.get_bone_global_rest(middle_bone_idx)
 	else:
-		hand_rest = character_skeleton.get_bone_global_pose_no_override(hand_idx)
+		middle_pose = character_skeleton.get_bone_global_pose_no_override(middle_bone_idx)
 
-	var hand_world: Transform3D = character_skeleton.global_transform * hand_rest
+	var middle_world_basis := (character_skeleton.global_transform.basis * middle_pose.basis).orthonormalized()
+	var local_direction: Vector3 = middle_world_basis.inverse() * world_direction
+	if local_direction.length_squared() <= IK_EPSILON:
+		return Vector3.UP
+	return local_direction.normalized()
 
-	# Use hand leaf direction as the primary finger reference when available.
-	var finger_ref_dir := Vector3.ZERO
-	var leaf_idx := int(chain.get("leaf", -1))
+func _set_two_bone_ik_state(modifier: Node, enabled: bool, influence: float) -> void:
+	if modifier == null:
+		return
+	modifier.set("active", enabled)
+	modifier.set("influence", clampf(influence, 0.0, 1.0) if enabled else 0.0)
+
+func _connect_parallel_hand_orientation_signal() -> void:
+	if _ik_modifier_signal_connected or _left_arm_ik_modifier == null:
+		return
+	if not _left_arm_ik_modifier.has_signal("modification_processed"):
+		return
+
+	var callback: Callable = Callable(self, "_on_upper_body_ik_modification_processed")
+	if _left_arm_ik_modifier.is_connected("modification_processed", callback):
+		_ik_modifier_signal_connected = true
+		return
+
+	_left_arm_ik_modifier.connect("modification_processed", callback)
+	_ik_modifier_signal_connected = true
+
+func _cache_parallel_hand_basis_offset() -> void:
+	_parallel_hand_offset_ready = false
+	_right_hand_axis_map.clear()
+	_left_hand_axis_map.clear()
+	if character_skeleton == null or _right_hand_bone_idx < 0 or _left_hand_bone_idx < 0:
+		return
+
+	var visual_basis: Basis = visuals.global_transform.basis if visuals else global_transform.basis
+	var model_up: Vector3 = visual_basis.y.normalized()
+	var model_forward: Vector3 = -visual_basis.z.normalized()
+	if model_forward.length_squared() <= IK_EPSILON:
+		model_forward = Vector3.FORWARD
+
+	var right_forward_ref: Vector3 = _get_hand_forward_reference_direction(_right_hand_bone_idx, "Hand.R_leaf", "LowerArm.R", model_forward)
+	var left_forward_ref: Vector3 = _get_hand_forward_reference_direction(_left_hand_bone_idx, "Hand.L_leaf", "LowerArm.L", model_forward)
+	_right_hand_axis_map = _compute_hand_orientation_axis_map(_right_hand_bone_idx, right_forward_ref, model_up)
+	_left_hand_axis_map = _compute_hand_orientation_axis_map(_left_hand_bone_idx, left_forward_ref, model_up)
+
+	# Keep orientation offset neutral; axis maps provide stable per-rig hand orientation.
+	_right_hand_parallel_basis_offset = Basis.IDENTITY
+	_parallel_hand_offset_ready = not _right_hand_axis_map.is_empty() and not _left_hand_axis_map.is_empty()
+
+func _get_hand_forward_reference_direction(hand_bone_idx: int, leaf_bone_name: String, lower_bone_name: String, fallback_forward: Vector3) -> Vector3:
+	var hand_pos: Vector3 = _get_bone_world_rest_position(hand_bone_idx)
+
+	var leaf_idx := character_skeleton.find_bone(leaf_bone_name)
 	if leaf_idx >= 0:
-		var leaf_rest: Transform3D
-		if character_skeleton.has_method("get_bone_global_rest"):
-			leaf_rest = character_skeleton.get_bone_global_rest(leaf_idx)
-		else:
-			leaf_rest = character_skeleton.get_bone_global_pose_no_override(leaf_idx)
-		var leaf_world: Transform3D = character_skeleton.global_transform * leaf_rest
-		finger_ref_dir = leaf_world.origin - hand_world.origin
+		var leaf_pos: Vector3 = _get_bone_world_rest_position(leaf_idx)
+		var to_leaf: Vector3 = leaf_pos - hand_pos
+		if to_leaf.length_squared() > IK_EPSILON:
+			return to_leaf.normalized()
 
-	if finger_ref_dir.length_squared() <= IK_EPSILON:
-		var lower_idx := int(chain.get("lower", -1))
-		if lower_idx >= 0:
-			var lower_rest: Transform3D
-			if character_skeleton.has_method("get_bone_global_rest"):
-				lower_rest = character_skeleton.get_bone_global_rest(lower_idx)
-			else:
-				lower_rest = character_skeleton.get_bone_global_pose_no_override(lower_idx)
-			var lower_world: Transform3D = character_skeleton.global_transform * lower_rest
-			finger_ref_dir = hand_world.origin - lower_world.origin
+	var lower_idx := character_skeleton.find_bone(lower_bone_name)
+	if lower_idx >= 0:
+		var lower_pos: Vector3 = _get_bone_world_rest_position(lower_idx)
+		var forearm_to_hand: Vector3 = hand_pos - lower_pos
+		if forearm_to_hand.length_squared() > IK_EPSILON:
+			return forearm_to_hand.normalized()
 
-	if finger_ref_dir.length_squared() <= IK_EPSILON:
-		var outward_dir: Vector3 = hand_world.origin - shoulder_center_world
-		outward_dir = outward_dir - (model_up * outward_dir.dot(model_up))
-		if outward_dir.length_squared() <= IK_EPSILON:
-			var model_right: Vector3 = visuals.global_transform.basis.x.normalized()
-			outward_dir = -model_right if str(chain.get("side", "")) == "right" else model_right
-		finger_ref_dir = outward_dir
+	if fallback_forward.length_squared() <= IK_EPSILON:
+		return Vector3.FORWARD
+	return fallback_forward.normalized()
 
-	finger_ref_dir = finger_ref_dir.normalized()
-
-	var down_dir: Vector3 = -model_up.normalized()
-	var finger_axis_pick := _pick_basis_axis_for_direction(hand_world.basis, finger_ref_dir, -1)
-	var palm_axis_pick := _pick_basis_axis_for_direction(hand_world.basis, down_dir, int(finger_axis_pick.get("idx", 0)))
-
+func _compute_hand_orientation_axis_map(hand_bone_idx: int, forward_ref_world: Vector3, up_ref_world: Vector3) -> Dictionary:
+	var hand_world_basis: Basis = _get_bone_world_rest_basis(hand_bone_idx)
+	var forward_pick := _pick_basis_axis_for_direction(hand_world_basis, forward_ref_world, -1)
+	var up_pick := _pick_basis_axis_for_direction(hand_world_basis, up_ref_world, int(forward_pick.get("idx", 2)))
 	return {
-		"finger_idx": int(finger_axis_pick.get("idx", 0)),
-		"finger_sign": float(finger_axis_pick.get("sign", 1.0)),
-		"palm_idx": int(palm_axis_pick.get("idx", 1)),
-		"palm_sign": float(palm_axis_pick.get("sign", 1.0)),
+		"forward_idx": int(forward_pick.get("idx", 2)),
+		"forward_sign": float(forward_pick.get("sign", 1.0)),
+		"up_idx": int(up_pick.get("idx", 1)),
+		"up_sign": float(up_pick.get("sign", 1.0)),
 	}
 
 func _pick_basis_axis_for_direction(source_basis: Basis, direction: Vector3, excluded_axis: int = -1) -> Dictionary:
+	var dir: Vector3 = direction
+	if dir.length_squared() <= IK_EPSILON:
+		dir = Vector3.FORWARD
+	dir = dir.normalized()
+
 	var axes := [source_basis.x.normalized(), source_basis.y.normalized(), source_basis.z.normalized()]
 	var best_idx := 0
 	var best_abs_dot := -1.0
@@ -595,7 +670,7 @@ func _pick_basis_axis_for_direction(source_basis: Basis, direction: Vector3, exc
 	for i in range(3):
 		if i == excluded_axis:
 			continue
-		var dot_val: float = axes[i].dot(direction)
+		var dot_val: float = axes[i].dot(dir)
 		var abs_dot: float = absf(dot_val)
 		if abs_dot > best_abs_dot:
 			best_abs_dot = abs_dot
@@ -607,25 +682,32 @@ func _pick_basis_axis_for_direction(source_basis: Basis, direction: Vector3, exc
 		"sign": best_sign,
 	}
 
-func _build_hand_world_basis_from_axis_map(axis_map: Dictionary, finger_dir: Vector3, palm_dir: Vector3) -> Basis:
-	var finger_idx := int(axis_map.get("finger_idx", 0))
-	var finger_sign := float(axis_map.get("finger_sign", 1.0))
-	var palm_idx := int(axis_map.get("palm_idx", 1))
-	var palm_sign := float(axis_map.get("palm_sign", 1.0))
+func _build_hand_basis_from_axis_map(axis_map: Dictionary, forward_dir: Vector3, up_dir: Vector3) -> Basis:
+	if axis_map.is_empty():
+		return _build_parallel_hand_aim_basis(forward_dir, Vector3.RIGHT, up_dir)
 
-	var target_finger := finger_dir.normalized()
-	var target_palm := palm_dir - (target_finger * palm_dir.dot(target_finger))
-	if target_palm.length_squared() <= IK_EPSILON:
-		target_palm = Vector3.UP - (target_finger * Vector3.UP.dot(target_finger))
-	if target_palm.length_squared() <= IK_EPSILON:
-		target_palm = Vector3.RIGHT - (target_finger * Vector3.RIGHT.dot(target_finger))
-	target_palm = target_palm.normalized()
+	var forward_idx := int(axis_map.get("forward_idx", 2))
+	var forward_sign := float(axis_map.get("forward_sign", 1.0))
+	var up_idx := int(axis_map.get("up_idx", 1))
+	var up_sign := float(axis_map.get("up_sign", 1.0))
+
+	var target_forward: Vector3 = forward_dir
+	if target_forward.length_squared() <= IK_EPSILON:
+		target_forward = Vector3.FORWARD
+	target_forward = target_forward.normalized()
+
+	var target_up: Vector3 = up_dir - (target_forward * up_dir.dot(target_forward))
+	if target_up.length_squared() <= IK_EPSILON:
+		target_up = Vector3.UP - (target_forward * Vector3.UP.dot(target_forward))
+	if target_up.length_squared() <= IK_EPSILON:
+		target_up = Vector3.RIGHT - (target_forward * Vector3.RIGHT.dot(target_forward))
+	target_up = target_up.normalized()
 
 	var axes := [Vector3.ZERO, Vector3.ZERO, Vector3.ZERO]
-	axes[finger_idx] = target_finger * finger_sign
-	axes[palm_idx] = target_palm * palm_sign
+	axes[forward_idx] = target_forward * forward_sign
+	axes[up_idx] = target_up * up_sign
 
-	var remaining_idx := 3 - finger_idx - palm_idx
+	var remaining_idx := 3 - forward_idx - up_idx
 	if remaining_idx == 2:
 		axes[2] = axes[0].cross(axes[1]).normalized()
 	elif remaining_idx == 1:
@@ -635,26 +717,194 @@ func _build_hand_world_basis_from_axis_map(axis_map: Dictionary, finger_dir: Vec
 
 	return Basis(axes[0], axes[1], axes[2]).orthonormalized()
 
-func _compute_hand_gun_basis_offset(chain: Dictionary, gun_basis: Basis) -> Basis:
-	var hand_idx := int(chain.get("hand", -1))
-	if hand_idx < 0:
-		return Basis.IDENTITY
-	var hand_world_basis: Basis
-	if character_skeleton.has_method("get_bone_global_rest"):
-		var hand_rest: Transform3D = character_skeleton.get_bone_global_rest(hand_idx)
-		hand_world_basis = (character_skeleton.global_transform.basis * hand_rest.basis).orthonormalized()
-	else:
-		var hand_pose: Transform3D = character_skeleton.get_bone_global_pose_no_override(hand_idx)
-		hand_world_basis = (character_skeleton.global_transform.basis * hand_pose.basis).orthonormalized()
-	return (gun_basis.inverse() * hand_world_basis).orthonormalized()
+func _build_parallel_hand_aim_basis(forward_hint: Vector3, lateral_hint: Vector3, up_hint: Vector3) -> Basis:
+	var aim_forward: Vector3 = forward_hint
+	if aim_forward.length_squared() <= IK_EPSILON:
+		if camera:
+			aim_forward = -camera.global_transform.basis.z
+		elif visuals:
+			aim_forward = -visuals.global_transform.basis.z
+		else:
+			aim_forward = -global_transform.basis.z
+	if aim_forward.length_squared() <= IK_EPSILON:
+		aim_forward = Vector3.FORWARD
+	aim_forward = aim_forward.normalized()
 
-func _refresh_hand_gun_offsets_if_needed() -> void:
-	var model_id := 0
-	if weapon_manager and weapon_manager.current_world_model and is_instance_valid(weapon_manager.current_world_model):
-		model_id = weapon_manager.current_world_model.get_instance_id()
-	if model_id != _last_ik_gun_model_id:
-		_last_ik_gun_model_id = model_id
-		_cache_hand_gun_basis_offsets()
+	var visual_basis: Basis = visuals.global_transform.basis if visuals else global_transform.basis
+	var aim_right: Vector3 = lateral_hint - (aim_forward * lateral_hint.dot(aim_forward))
+	if aim_right.length_squared() <= IK_EPSILON:
+		aim_right = visual_basis.x - (aim_forward * visual_basis.x.dot(aim_forward))
+	if aim_right.length_squared() <= IK_EPSILON:
+		var up_proj: Vector3 = up_hint - (aim_forward * up_hint.dot(aim_forward))
+		if up_proj.length_squared() > IK_EPSILON:
+			aim_right = up_proj.cross(aim_forward)
+	if aim_right.length_squared() <= IK_EPSILON:
+		aim_right = Vector3.RIGHT if absf(Vector3.RIGHT.dot(aim_forward)) < 0.98 else Vector3.FORWARD
+	aim_right = aim_right.normalized()
+
+	var aim_up: Vector3 = aim_forward.cross(aim_right)
+	if aim_up.length_squared() <= IK_EPSILON:
+		aim_up = Vector3.UP if absf(Vector3.UP.dot(aim_forward)) < 0.98 else Vector3.FORWARD
+	aim_up = aim_up.normalized()
+	# Keep a right-handed basis: x=right, y=up, z=-forward.
+	aim_up = aim_right.cross(aim_forward).normalized()
+	aim_right = aim_forward.cross(aim_up).normalized()
+
+	return Basis(aim_right, aim_up, -aim_forward).orthonormalized()
+
+func _on_upper_body_ik_modification_processed() -> void:
+	if not _parallel_hand_orientation_active:
+		return
+	if _arm_ik_blend <= 0.001:
+		return
+	_apply_parallel_hand_orientation(_parallel_hand_desired_basis, _arm_ik_blend)
+
+func _compute_forward_axis_roll_to_align_up(current_up: Vector3, desired_up: Vector3, forward_axis: Vector3) -> float:
+	if forward_axis.length_squared() <= IK_EPSILON:
+		return 0.0
+	var axis: Vector3 = forward_axis.normalized()
+
+	var current_proj: Vector3 = current_up - (axis * current_up.dot(axis))
+	var desired_proj: Vector3 = desired_up - (axis * desired_up.dot(axis))
+	if current_proj.length_squared() <= IK_EPSILON or desired_proj.length_squared() <= IK_EPSILON:
+		return 0.0
+
+	return current_proj.normalized().signed_angle_to(desired_proj.normalized(), axis)
+
+func _refresh_ik_gun_basis_offset_if_needed() -> void:
+	if not weapon_manager:
+		_ik_last_gun_model_id = 0
+		_ik_cached_weapon_world_model_rot = Vector3.ZERO
+		_ik_gun_basis_offset_ready = false
+		return
+
+	var gun_model: Node3D = weapon_manager.current_world_model
+	if gun_model == null or not is_instance_valid(gun_model):
+		_ik_last_gun_model_id = 0
+		_ik_cached_weapon_world_model_rot = Vector3.ZERO
+		_ik_gun_basis_offset_ready = false
+		return
+
+	var current_weapon_rot: Vector3 = _get_weapon_world_model_rotation()
+	var gun_model_id: int = gun_model.get_instance_id()
+	if _ik_gun_basis_offset_ready and gun_model_id == _ik_last_gun_model_id and current_weapon_rot.is_equal_approx(_ik_cached_weapon_world_model_rot):
+		return
+
+	_ik_last_gun_model_id = gun_model_id
+	_ik_cached_weapon_world_model_rot = current_weapon_rot
+	_cache_ik_right_hand_to_gun_basis_offset(gun_model)
+
+func _cache_ik_right_hand_to_gun_basis_offset(gun_model: Node3D) -> void:
+	_ik_gun_basis_offset_ready = false
+	if character_skeleton == null or _right_hand_bone_idx < 0:
+		return
+
+	var right_hand_pose: Transform3D = character_skeleton.get_bone_global_pose_no_override(_right_hand_bone_idx)
+	var right_hand_world_basis: Basis = (character_skeleton.global_transform.basis * right_hand_pose.basis).orthonormalized()
+	var gun_world_basis: Basis = gun_model.global_transform.basis.orthonormalized()
+	if absf(right_hand_world_basis.determinant()) <= IK_EPSILON or absf(gun_world_basis.determinant()) <= IK_EPSILON:
+		return
+
+	_ik_right_hand_to_gun_basis_offset = (right_hand_world_basis.inverse() * gun_world_basis).orthonormalized()
+	_ik_gun_basis_offset_ready = true
+
+func _build_basis_from_forward_up(forward_dir: Vector3, up_hint: Vector3) -> Basis:
+	var forward: Vector3 = forward_dir
+	if forward.length_squared() <= IK_EPSILON:
+		forward = Vector3.FORWARD
+	forward = forward.normalized()
+
+	var up: Vector3 = up_hint - (forward * up_hint.dot(forward))
+	if up.length_squared() <= IK_EPSILON:
+		up = Vector3.UP - (forward * Vector3.UP.dot(forward))
+	if up.length_squared() <= IK_EPSILON:
+		up = Vector3.RIGHT - (forward * Vector3.RIGHT.dot(forward))
+	up = up.normalized()
+
+	var right: Vector3 = forward.cross(up)
+	if right.length_squared() <= IK_EPSILON:
+		right = Vector3.RIGHT if absf(Vector3.RIGHT.dot(forward)) < 0.98 else Vector3.FORWARD
+	right = right.normalized()
+	up = right.cross(forward).normalized()
+
+	return Basis(right, up, -forward).orthonormalized()
+
+func _get_locked_ik_forward(aim_basis: Basis) -> Vector3:
+	var forward: Vector3 = -aim_basis.z
+	var shot_origin: Vector3 = Vector3.ZERO
+	var has_shot_origin: bool = false
+	if weapon_manager and weapon_manager.bullet_cast and is_instance_valid(weapon_manager.bullet_cast):
+		shot_origin = weapon_manager.bullet_cast.global_position
+		has_shot_origin = true
+	elif camera and is_instance_valid(camera):
+		shot_origin = camera.global_position
+		has_shot_origin = true
+
+	if has_shot_origin:
+		var shot_target: Vector3 = _get_ik_aim_target_world_position()
+		var shot_dir: Vector3 = shot_target - shot_origin
+		if shot_dir.length_squared() > IK_EPSILON:
+			forward = shot_dir
+
+	if forward.length_squared() <= IK_EPSILON and camera and is_instance_valid(camera):
+		var camera_forward: Vector3 = -camera.global_transform.basis.z
+		if camera_forward.length_squared() > IK_EPSILON:
+			forward = camera_forward
+	if forward.length_squared() <= IK_EPSILON:
+		forward = Vector3.FORWARD
+	return forward.normalized()
+
+func _get_weapon_world_model_rotation() -> Vector3:
+	if weapon_manager and weapon_manager.current_weapon:
+		return weapon_manager.current_weapon.world_model_rot
+	return Vector3.ZERO
+
+func _apply_parallel_hand_orientation(aim_basis: Basis, influence: float) -> void:
+	if character_skeleton == null or not character_skeleton.has_method("set_bone_global_pose_override"):
+		return
+	if _right_hand_bone_idx < 0 or _left_hand_bone_idx < 0:
+		return
+	if not _parallel_hand_offset_ready:
+		_cache_parallel_hand_basis_offset()
+	if not _parallel_hand_offset_ready:
+		return
+	_refresh_ik_gun_basis_offset_if_needed()
+
+	var target_forward: Vector3 = _get_locked_ik_forward(aim_basis)
+	var lock_up_hint: Vector3 = Vector3.UP if ik_lock_gun_vertical else aim_basis.y.normalized()
+	var desired_gun_basis: Basis = _build_basis_from_forward_up(target_forward, lock_up_hint)
+	var right_hand_basis: Basis
+	var left_hand_basis: Basis
+	if _ik_gun_basis_offset_ready:
+		right_hand_basis = (desired_gun_basis * _ik_right_hand_to_gun_basis_offset.inverse()).orthonormalized()
+		# Keep both hands in the same locked orientation so the grip stays parallel.
+		left_hand_basis = right_hand_basis
+	else:
+		right_hand_basis = _build_hand_basis_from_axis_map(_right_hand_axis_map, target_forward, desired_gun_basis.y)
+		var auto_roll_radians: float = _compute_forward_axis_roll_to_align_up(right_hand_basis.y, desired_gun_basis.y, target_forward)
+		right_hand_basis = (Basis(target_forward, auto_roll_radians) * right_hand_basis).orthonormalized()
+		left_hand_basis = right_hand_basis
+
+	var roll_radians: float = 0.0 if ik_lock_gun_vertical else deg_to_rad(ik_hand_roll_offset_degrees)
+	if absf(roll_radians) > IK_EPSILON:
+		var roll_basis := Basis(target_forward, roll_radians)
+		right_hand_basis = (roll_basis * right_hand_basis).orthonormalized()
+		left_hand_basis = (roll_basis * left_hand_basis).orthonormalized()
+	var right_hand_world_pos: Vector3 = _right_ik_target.global_position if _right_ik_target else _get_bone_world_position(_right_hand_bone_idx)
+	var left_hand_world_pos: Vector3 = _left_ik_target.global_position if _left_ik_target else _get_bone_world_position(_left_hand_bone_idx)
+	_apply_hand_world_basis_override(_right_hand_bone_idx, right_hand_basis, right_hand_world_pos, influence)
+	_apply_hand_world_basis_override(_left_hand_bone_idx, left_hand_basis, left_hand_world_pos, influence)
+
+func _apply_hand_world_basis_override(hand_bone_idx: int, world_basis: Basis, world_position: Vector3, influence: float) -> void:
+	if hand_bone_idx < 0:
+		return
+	var hand_world_transform := Transform3D(world_basis, world_position)
+	var hand_skeleton_transform: Transform3D = character_skeleton.global_transform.affine_inverse() * hand_world_transform
+	character_skeleton.set_bone_global_pose_override(hand_bone_idx, hand_skeleton_transform, clampf(influence, 0.0, 1.0), true)
+
+func _detect_ik_forward_sign() -> void:
+	# This character rig is authored facing negative Z, so keep forward fixed.
+	_ik_forward_sign = 1.0
 
 func _compute_arm_ik_target_weight() -> float:
 	if not is_multiplayer_authority():
@@ -673,23 +923,36 @@ func _update_upper_body_ik(_delta: float) -> void:
 		if not _ik_setup_complete:
 			return
 
-	var target_weight := _compute_arm_ik_target_weight()
-	_arm_ik_blend = target_weight
-
-	if _arm_ik_blend <= 0.001:
-		_clear_upper_body_ik_overrides()
+	_arm_ik_blend = _compute_arm_ik_target_weight()
+	var ik_enabled := _arm_ik_blend > 0.001
+	_set_two_bone_ik_state(_right_arm_ik_modifier, ik_enabled, _arm_ik_blend)
+	_set_two_bone_ik_state(_left_arm_ik_modifier, ik_enabled, _arm_ik_blend)
+	if not ik_enabled:
+		_parallel_hand_orientation_active = false
 		return
-	_refresh_hand_gun_offsets_if_needed()
-	var gun_basis := _get_gun_world_basis_for_ik()
 
-	var right_root_world := _get_arm_root_world_position(_right_arm_chain)
-	var left_root_world := _get_arm_root_world_position(_left_arm_chain)
+	if _right_ik_target == null or _left_ik_target == null or _right_ik_pole == null or _left_ik_pole == null:
+		_parallel_hand_orientation_active = false
+		return
+	if _right_upper_arm_bone_idx < 0 or _left_upper_arm_bone_idx < 0:
+		_parallel_hand_orientation_active = false
+		return
+
+	var right_root_world := _get_bone_world_position(_right_upper_arm_bone_idx)
+	var left_root_world := _get_bone_world_position(_left_upper_arm_bone_idx)
 
 	var shoulder_center: Vector3 = (right_root_world + left_root_world) * 0.5
 	var model_basis: Basis = visuals.global_transform.basis.orthonormalized()
 	var model_right: Vector3 = model_basis.x.normalized()
 	var model_up: Vector3 = model_basis.y.normalized()
-	var model_forward: Vector3 = -model_basis.z
+	var lateral_to_right: Vector3 = right_root_world - left_root_world
+	lateral_to_right.y = 0.0
+	if lateral_to_right.length_squared() <= IK_EPSILON:
+		lateral_to_right = -model_right
+	else:
+		lateral_to_right = lateral_to_right.normalized()
+	var aim_target: Vector3 = _get_ik_aim_target_world_position()
+	var model_forward: Vector3 = aim_target - shoulder_center
 	model_forward.y = 0.0
 	if model_forward.length_squared() <= IK_EPSILON:
 		model_forward = -camera.global_transform.basis.z
@@ -705,64 +968,28 @@ func _update_upper_body_ik(_delta: float) -> void:
 	var elbow_down_bias: float = ik_elbow_down_bias + (up_pitch_ratio * ik_elbow_drop_on_up_pitch)
 
 	var hand_center: Vector3 = shoulder_center + (model_forward * hold_forward_distance) + (model_up * (ik_hands_vertical_offset + pitch_vertical_offset - ik_forearm_barrel_drop))
-	var half_clasp_separation: float = clampf(ik_hands_centerline_offset, 0.0, ik_hands_max_spread * 0.5)
-	var right_hand_target: Vector3 = hand_center + (model_right * half_clasp_separation)
-	var left_hand_target: Vector3 = hand_center - (model_right * half_clasp_separation)
+	var half_clasp_separation: float = clampf(ik_hands_clasp_separation * 0.5, 0.0, ik_hands_max_spread * 0.5)
+	var right_hand_target: Vector3 = hand_center + (lateral_to_right * half_clasp_separation)
+	var left_hand_target: Vector3 = hand_center - (lateral_to_right * half_clasp_separation)
 	var guard_distance: float = minf(ik_midline_guard_distance, half_clasp_separation)
 
-	var right_side_distance: float = (right_hand_target - shoulder_center).dot(model_right)
+	var right_side_distance: float = (right_hand_target - shoulder_center).dot(lateral_to_right)
 	if right_side_distance < guard_distance:
-		right_hand_target += model_right * (guard_distance - right_side_distance)
+		right_hand_target += lateral_to_right * (guard_distance - right_side_distance)
 
-	var left_side_distance: float = (left_hand_target - shoulder_center).dot(model_right)
+	var left_side_distance: float = (left_hand_target - shoulder_center).dot(lateral_to_right)
 	if left_side_distance > -guard_distance:
-		left_hand_target -= model_right * (left_side_distance + guard_distance)
+		left_hand_target -= lateral_to_right * (left_side_distance + guard_distance)
 
-	var right_elbow_axis: Vector3 = ((model_right * ik_elbow_outward_bias) + (model_forward * ik_elbow_forward_bias) - (model_up * elbow_down_bias)).normalized()
-	var left_elbow_axis: Vector3 = ((-model_right * ik_elbow_outward_bias) + (model_forward * ik_elbow_forward_bias) - (model_up * elbow_down_bias)).normalized()
-	var clasp_focus: Vector3 = hand_center + (model_forward * ik_clasp_focus_forward_offset)
-	var right_center_inward: Vector3 = clasp_focus - right_hand_target
-	var left_center_inward: Vector3 = clasp_focus - left_hand_target
-	var right_palm_focus: Vector3 = left_hand_target + (model_forward * ik_palm_clasp_forward_offset)
-	var left_palm_focus: Vector3 = right_hand_target + (model_forward * ik_palm_clasp_forward_offset)
-	var clasp_bias: float = clampf(ik_palm_clasp_bias, 0.0, 1.0)
-	var right_inward_dir: Vector3 = right_center_inward.lerp(right_palm_focus - right_hand_target, clasp_bias)
-	var left_inward_dir: Vector3 = left_center_inward.lerp(left_palm_focus - left_hand_target, clasp_bias)
-	if right_inward_dir.length_squared() <= IK_EPSILON:
-		right_inward_dir = left_hand_target - right_hand_target
-	if left_inward_dir.length_squared() <= IK_EPSILON:
-		left_inward_dir = right_hand_target - left_hand_target
-	right_inward_dir = right_inward_dir.normalized()
-	left_inward_dir = left_inward_dir.normalized()
+	var right_pole_target: Vector3 = right_root_world + ((lateral_to_right * ik_elbow_outward_bias) + (model_forward * ik_elbow_forward_bias) - (model_up * elbow_down_bias))
+	var left_pole_target: Vector3 = left_root_world + ((-lateral_to_right * ik_elbow_outward_bias) + (model_forward * ik_elbow_forward_bias) - (model_up * elbow_down_bias))
+	_parallel_hand_desired_basis = _build_parallel_hand_aim_basis(aim_target - hand_center, lateral_to_right, model_up)
+	_parallel_hand_orientation_active = true
 
-	_apply_arm_target_ik(_right_arm_chain, right_hand_target, right_elbow_axis, gun_basis, right_inward_dir, _arm_ik_blend)
-	_apply_arm_target_ik(_left_arm_chain, left_hand_target, left_elbow_axis, gun_basis, left_inward_dir, _arm_ik_blend)
-
-func _clear_upper_body_ik_overrides() -> void:
-	if character_skeleton == null or not character_skeleton.has_method("set_bone_global_pose_override"):
-		return
-	if not _ik_setup_complete:
-		return
-	if character_skeleton.has_method("clear_bones_global_pose_override"):
-		character_skeleton.clear_bones_global_pose_override()
-		return
-	_set_arm_chain_override_weight(_right_arm_chain, 0.0)
-	_set_arm_chain_override_weight(_left_arm_chain, 0.0)
-
-func _set_arm_chain_override_weight(chain: Dictionary, weight: float) -> void:
-	var upper_idx := int(chain.get("upper", -1))
-	var lower_idx := int(chain.get("lower", -1))
-	var hand_idx := int(chain.get("hand", -1))
-	if upper_idx < 0 or lower_idx < 0:
-		return
-
-	var upper_pose: Transform3D = character_skeleton.get_bone_global_pose_no_override(upper_idx)
-	var lower_pose: Transform3D = character_skeleton.get_bone_global_pose_no_override(lower_idx)
-	character_skeleton.set_bone_global_pose_override(upper_idx, upper_pose, weight, true)
-	character_skeleton.set_bone_global_pose_override(lower_idx, lower_pose, weight, true)
-	if hand_idx >= 0:
-		var hand_pose: Transform3D = character_skeleton.get_bone_global_pose_no_override(hand_idx)
-		character_skeleton.set_bone_global_pose_override(hand_idx, hand_pose, weight, true)
+	_right_ik_target.global_position = right_hand_target
+	_left_ik_target.global_position = left_hand_target
+	_right_ik_pole.global_position = right_pole_target
+	_left_ik_pole.global_position = left_pole_target
 
 func _get_ik_aim_target_world_position() -> Vector3:
 	var current_frame: int = Engine.get_process_frames()
@@ -795,173 +1022,37 @@ func _get_ik_aim_target_world_position() -> Vector3:
 	_ik_cached_aim_frame = current_frame
 	return _ik_cached_aim_target
 
-func _get_arm_root_world_position(chain: Dictionary) -> Vector3:
-	var upper_idx := int(chain.get("upper", -1))
-	if upper_idx < 0:
-		return Vector3.ZERO
-	var upper_pose: Transform3D = character_skeleton.get_bone_global_pose_no_override(upper_idx)
-	return (character_skeleton.global_transform * upper_pose).origin
+func _get_bone_world_position(bone_idx: int) -> Vector3:
+	if character_skeleton == null or bone_idx < 0:
+		return global_position
+	var bone_pose: Transform3D = character_skeleton.get_bone_global_pose_no_override(bone_idx)
+	return (character_skeleton.global_transform * bone_pose).origin
 
-func _apply_arm_target_ik(chain: Dictionary, tip_target_world: Vector3, preferred_elbow_axis_world: Vector3, gun_basis: Basis, inward_dir_world: Vector3, weight: float) -> void:
-	var upper_idx := int(chain.get("upper", -1))
-	var lower_idx := int(chain.get("lower", -1))
-	var hand_idx := int(chain.get("hand", -1))
-	var tip_idx := int(chain.get("tip", -1))
-	if upper_idx < 0 or lower_idx < 0 or tip_idx < 0:
-		return
-
-	var upper_pose: Transform3D = character_skeleton.get_bone_global_pose_no_override(upper_idx)
-	var lower_pose: Transform3D = character_skeleton.get_bone_global_pose_no_override(lower_idx)
-	var tip_pose: Transform3D = character_skeleton.get_bone_global_pose_no_override(tip_idx)
-
-	var skeleton_world: Transform3D = character_skeleton.global_transform
-	var upper_world: Transform3D = skeleton_world * upper_pose
-	var lower_world: Transform3D = skeleton_world * lower_pose
-	var tip_world: Transform3D = skeleton_world * tip_pose
-
-	var root_position: Vector3 = upper_world.origin
-	var joint_position: Vector3 = lower_world.origin
-	var tip_position: Vector3 = tip_world.origin
-
-	if (tip_position - root_position).length_squared() <= IK_EPSILON:
-		return
-
-	var solved := _solve_two_bone_chain(root_position, joint_position, tip_position, tip_target_world, preferred_elbow_axis_world)
-	if solved.is_empty():
-		return
-
-	var solved_joint: Vector3 = solved.get("joint", joint_position)
-	var solved_tip: Vector3 = solved.get("tip", tip_position)
-
-	var upper_from: Vector3 = joint_position - root_position
-	var upper_to: Vector3 = solved_joint - root_position
-	var lower_from: Vector3 = tip_position - joint_position
-	var lower_to: Vector3 = solved_tip - solved_joint
-	if upper_from.length_squared() <= IK_EPSILON or upper_to.length_squared() <= IK_EPSILON:
-		return
-	if lower_from.length_squared() <= IK_EPSILON or lower_to.length_squared() <= IK_EPSILON:
-		return
-
-	var upper_basis := _rotate_basis_towards_direction(upper_world.basis, upper_from, upper_to)
-	var lower_basis := _rotate_basis_towards_direction(lower_world.basis, lower_from, lower_to)
-
-	var solved_upper_world := Transform3D(upper_basis, root_position)
-	var solved_lower_world := Transform3D(lower_basis, solved_joint)
-
-	var solved_upper_skeleton: Transform3D = skeleton_world.affine_inverse() * solved_upper_world
-	var solved_lower_skeleton: Transform3D = skeleton_world.affine_inverse() * solved_lower_world
-
-	character_skeleton.set_bone_global_pose_override(upper_idx, solved_upper_skeleton, weight, true)
-	character_skeleton.set_bone_global_pose_override(lower_idx, solved_lower_skeleton, weight, true)
-
-	if hand_idx >= 0:
-		_apply_hand_rotation_override(chain, hand_idx, tip_target_world, solved_joint, gun_basis, inward_dir_world, weight)
-
-func _apply_hand_rotation_override(chain: Dictionary, hand_idx: int, hand_target_world: Vector3, forearm_origin_world: Vector3, gun_basis: Basis, inward_dir_world: Vector3, weight: float) -> void:
-	if character_skeleton == null:
-		return
-	if not weapon_manager or not weapon_manager.current_world_model or not is_instance_valid(weapon_manager.current_world_model):
-		return
-	var side := str(chain.get("side", ""))
-	var axis_map: Dictionary = chain.get("axis_map", {})
-	if axis_map.is_empty():
-		axis_map = _right_hand_axis_map if side == "right" else _left_hand_axis_map
-
-	var target_hand_basis: Basis
-	if axis_map.is_empty():
-		var hand_basis_offset: Basis = _right_hand_gun_basis_offset if side == "right" else _left_hand_gun_basis_offset
-		target_hand_basis = (gun_basis * hand_basis_offset).orthonormalized()
+func _get_bone_world_rest_position(bone_idx: int) -> Vector3:
+	if character_skeleton == null or bone_idx < 0:
+		return global_position
+	var bone_rest: Transform3D
+	if character_skeleton.has_method("get_bone_global_rest"):
+		bone_rest = character_skeleton.get_bone_global_rest(bone_idx)
 	else:
-		var gun_finger_dir: Vector3 = -gun_basis.z.normalized()
-		var forearm_dir: Vector3 = hand_target_world - forearm_origin_world
-		if forearm_dir.length_squared() <= IK_EPSILON:
-			forearm_dir = gun_finger_dir
-		else:
-			forearm_dir = forearm_dir.normalized()
-		var forearm_follow: float = clampf(ik_hand_forearm_follow, 0.0, 1.0)
-		var finger_dir: Vector3 = (gun_finger_dir * (1.0 - forearm_follow)) + (forearm_dir * forearm_follow)
-		if finger_dir.length_squared() <= IK_EPSILON:
-			finger_dir = gun_finger_dir
-		finger_dir = finger_dir.normalized()
+		bone_rest = character_skeleton.get_bone_global_pose_no_override(bone_idx)
+	return (character_skeleton.global_transform * bone_rest).origin
 
-		var inward_dir: Vector3 = inward_dir_world.normalized()
-		if inward_dir.length_squared() <= IK_EPSILON:
-			inward_dir = (-visuals.global_transform.basis.x).normalized() if side == "right" else visuals.global_transform.basis.x.normalized()
-		inward_dir = inward_dir - (finger_dir * inward_dir.dot(finger_dir))
-		if inward_dir.length_squared() <= IK_EPSILON:
-			inward_dir = (visuals.global_transform.basis.y - (finger_dir * visuals.global_transform.basis.y.dot(finger_dir))).normalized()
-		if inward_dir.length_squared() <= IK_EPSILON:
-			inward_dir = (-visuals.global_transform.basis.x).normalized() if side == "right" else visuals.global_transform.basis.x.normalized()
-		target_hand_basis = _build_hand_world_basis_from_axis_map(axis_map, finger_dir, inward_dir)
+func _get_bone_world_basis(bone_idx: int) -> Basis:
+	if character_skeleton == null or bone_idx < 0:
+		return global_transform.basis.orthonormalized()
+	var bone_pose: Transform3D = character_skeleton.get_bone_global_pose_no_override(bone_idx)
+	return (character_skeleton.global_transform.basis * bone_pose.basis).orthonormalized()
 
-	var hand_world_transform := Transform3D(target_hand_basis, hand_target_world)
-	var hand_skeleton_transform: Transform3D = character_skeleton.global_transform.affine_inverse() * hand_world_transform
-	character_skeleton.set_bone_global_pose_override(hand_idx, hand_skeleton_transform, weight, true)
-
-func _solve_two_bone_chain(root_pos: Vector3, joint_pos: Vector3, tip_pos: Vector3, target_pos: Vector3, preferred_bend_axis: Vector3 = Vector3.ZERO) -> Dictionary:
-	var upper_len := root_pos.distance_to(joint_pos)
-	var lower_len := joint_pos.distance_to(tip_pos)
-	if upper_len <= IK_EPSILON or lower_len <= IK_EPSILON:
-		return {}
-
-	var target_delta := target_pos - root_pos
-	var target_dist := target_delta.length()
-	if target_dist <= IK_EPSILON:
-		return {}
-
-	var min_reach: float = absf(upper_len - lower_len) + 0.0001
-	var max_reach: float = upper_len + lower_len - 0.0001
-	var clamped_dist: float = clampf(target_dist, min_reach, max_reach)
-	var target_dir: Vector3 = target_delta / target_dist
-
-	var bend_axis: Vector3 = Vector3.ZERO
-	if preferred_bend_axis.length_squared() > IK_EPSILON:
-		bend_axis = preferred_bend_axis.normalized()
-		bend_axis = bend_axis - (target_dir * bend_axis.dot(target_dir))
-		if bend_axis.length_squared() > IK_EPSILON:
-			bend_axis = bend_axis.normalized()
-
-	if bend_axis.length_squared() <= IK_EPSILON:
-		var bend_normal := (joint_pos - root_pos).cross(tip_pos - joint_pos)
-		if bend_normal.length_squared() <= IK_EPSILON:
-			bend_normal = character_skeleton.global_transform.basis.z.cross(target_dir)
-		if bend_normal.length_squared() <= IK_EPSILON:
-			bend_normal = Vector3.UP
-		bend_normal = bend_normal.normalized()
-		bend_axis = bend_normal.cross(target_dir)
-		if bend_axis.length_squared() <= IK_EPSILON:
-			bend_axis = character_skeleton.global_transform.basis.y
-		bend_axis = bend_axis.normalized()
-
-	var cos_root: float = clampf((upper_len * upper_len + clamped_dist * clamped_dist - lower_len * lower_len) / (2.0 * upper_len * clamped_dist), -1.0, 1.0)
-	var sin_root := sqrt(max(0.0, 1.0 - (cos_root * cos_root)))
-
-	var solved_joint: Vector3 = root_pos + (target_dir * (cos_root * upper_len)) + (bend_axis * (sin_root * upper_len))
-	var solved_tip: Vector3 = root_pos + (target_dir * clamped_dist)
-	if target_dist <= max_reach:
-		solved_tip = target_pos
-
-	return {
-		"joint": solved_joint,
-		"tip": solved_tip,
-	}
-
-func _rotate_basis_towards_direction(source_basis: Basis, from_dir: Vector3, to_dir: Vector3) -> Basis:
-	var from_n := from_dir.normalized()
-	var to_n := to_dir.normalized()
-	var dot: float = clampf(from_n.dot(to_n), -1.0, 1.0)
-	if dot >= 0.9999:
-		return source_basis
-
-	var axis := from_n.cross(to_n)
-	if axis.length_squared() <= IK_EPSILON:
-		axis = source_basis.x
-		if abs(axis.normalized().dot(from_n)) > 0.95:
-			axis = source_basis.z
-	axis = axis.normalized()
-
-	var angle := acos(dot)
-	return Basis(axis, angle) * source_basis
+func _get_bone_world_rest_basis(bone_idx: int) -> Basis:
+	if character_skeleton == null or bone_idx < 0:
+		return global_transform.basis.orthonormalized()
+	var bone_rest: Transform3D
+	if character_skeleton.has_method("get_bone_global_rest"):
+		bone_rest = character_skeleton.get_bone_global_rest(bone_idx)
+	else:
+		bone_rest = character_skeleton.get_bone_global_pose_no_override(bone_idx)
+	return (character_skeleton.global_transform.basis * bone_rest.basis).orthonormalized()
 
 func get_move_speed() -> float:
 	return sprint_speed if is_sprinting else walk_speed;

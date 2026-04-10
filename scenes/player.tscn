@@ -1834,7 +1834,7 @@ xfade_time = 0.25
 [sub_resource type="AnimationNodeStateMachine" id="AnimationNodeStateMachine_d2wvv"]
 states/End/position = Vector2(1046, 148.5)
 states/RunBlendSpace2D/node = SubResource("AnimationNodeBlendSpace2D_f1ej7")
-states/RunBlendSpace2D/position = Vector2(523, 54)
+states/RunBlendSpace2D/position = Vector2(523.6875, 54)
 states/WalkBlendSpace2D/node = SubResource("AnimationNodeBlendSpace2D_smehm")
 states/WalkBlendSpace2D/position = Vector2(524.875, 295)
 states/endJump/node = SubResource("AnimationNodeAnimation_fulsm")
@@ -2223,7 +2223,7 @@ libraries/ = SubResource("AnimationLibrary_u61od")
 root_node = NodePath("../orange_astro")
 tree_root = SubResource("AnimationNodeStateMachine_d2wvv")
 anim_player = NodePath("../orange_astro/AnimationPlayer")
-parameters/RunBlendSpace2D/blend_position = Vector2(0, 0)
+parameters/RunBlendSpace2D/blend_position = Vector2(0, 0.98113203)
 parameters/WalkBlendSpace2D/blend_position = Vector2(0, 0)
 
 [node name="SpringArm3D" type="SpringArm3D" parent="." unique_id=1184022281]
